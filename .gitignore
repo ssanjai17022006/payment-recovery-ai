@@ -2,3 +2,8 @@ venv/
 __pycache__/
 *.pyc
 .env
+
+# Local backups and temporary files
+data/*_backup*.csv
+data/*_clean.csv
+data/*_temp.csv

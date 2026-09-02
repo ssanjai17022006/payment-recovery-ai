@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Payment Recovery AI</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- ==================================================
+             HEADER
+             ================================================== -->
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Payment Recovery AI
+                </h1>
+
+                <p class="subtitle">
+                    Intelligent failed-payment recovery decision system
+                </p>
+
+            </div>
+
+            <div
+                id="apiStatus"
+                class="api-status checking"
+            >
+
+                <span class="status-dot"></span>
+
+                <span id="apiStatusText">
+                    Checking API...
+                </span>
+
+            </div>
+
+        </header>
+
+
+        <!-- ==================================================
+             DASHBOARD
+             ================================================== -->
+
+        <section class="dashboard-section">
+
+            <div class="section-heading">
+
+                <div>
+
+                    <h2>
+                        Recovery Dashboard
+                    </h2>
+
+                    <p>
+                        Live operational metrics from AI decisions
+                    </p>
+
+                </div>
+
+                <button
+                    id="refreshDashboard"
+                    class="refresh-button"
+                    type="button"
+                >
+                    Refresh
+                </button>
+
+            </div>
+
+
+            <!-- ==================================================
+                 KPI CARDS
+                 ================================================== -->
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <div class="stat-label">
+                        TOTAL TRANSACTIONS
+                    </div>
+
+                    <div
+                        id="totalTransactions"
+                        class="stat-value"
+                    >
+                        —
+                    </div>
+
+                    <div class="stat-description">
+                        Live analyzed transactions
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card automate-card">
+
+                    <div class="stat-label">
+                        AUTOMATE
+                    </div>
+
+                    <div
+                        id="automateCount"
+                        class="stat-value"
+                    >
+                        —
+                    </div>
+
+                    <div class="stat-description">
+                        Safe for automated recovery
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card review-card">
+
+                    <div class="stat-label">
+                        REVIEW
+                    </div>
+
+                    <div
+                        id="reviewCount"
+                        class="stat-value"
+                    >
+                        —
+                    </div>
+
+                    <div class="stat-description">
+                        Requires human review
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card dont-recover-card">
+
+                    <div class="stat-label">
+                        DO NOT RECOVER
+                    </div>
+
+                    <div
+                        id="doNotRecoverCount"
+                        class="stat-value"
+                    >
+                        —
+                    </div>
+
+                    <div class="stat-description">
+                        Recovery not recommended
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card automation-rate-card">
+
+                    <div class="stat-label">
+                        AUTOMATION RATE
+                    </div>
+
+                    <div
+                        id="automationRate"
+                        class="stat-value"
+                    >
+                        —
+                    </div>
+
+                    <div class="stat-description">
+                        Share of transactions automated
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==================================================
+                 AI DECISION FLOW
+                 ================================================== -->
+
+            <div class="decision-flow-card">
+
+                <div class="card-title">
+                    AI Recovery Decision Flow
+                </div>
+
+                <div class="decision-flow">
+
+                    <div class="flow-step">
+
+                        <div class="flow-number">
+                            1
+                        </div>
+
+                        <div class="flow-content">
+
+                            <strong>
+                                Failed Payment
+                            </strong>
+
+                            <span>
+                                Transaction enters recovery analysis
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="flow-arrow">
+                        →
+                    </div>
+
+
+                    <div class="flow-step">
+
+                        <div class="flow-number">
+                            2
+                        </div>
+
+                        <div class="flow-content">
+
+                            <strong>
+                                AI Recovery Model
+                            </strong>
+
+                            <span>
+                                ML model analyzes transaction features
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="flow-arrow">
+                        →
+                    </div>
+
+
+                    <div class="flow-step">
+
+                        <div class="flow-number">
+                            3
+                        </div>
+
+                        <div class="flow-content">
+
+                            <strong>
+                                Recovery Probability
+                            </strong>
+
+                            <span>
+                                Estimates likelihood of recovery
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="flow-arrow">
+                        →
+                    </div>
+
+
+                    <div class="flow-step">
+
+                        <div class="flow-number">
+                            4
+                        </div>
+
+                        <div class="flow-content">
+
+                            <strong>
+                                Risk &amp; Policy Engine
+                            </strong>
+
+                            <span>
+                                Applies retry, risk and safety rules
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="flow-arrow">
+                        →
+                    </div>
+
+
+                    <div class="flow-step final-flow-step">
+
+                        <div class="flow-number">
+                            5
+                        </div>
+
+                        <div class="flow-content">
+
+                            <strong>
+                                Final Decision
+                            </strong>
+
+                            <span>
+                                AUTOMATE / REVIEW / DO NOT RECOVER
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==================================================
+                 RECOVERY PROBABILITY
+                 ================================================== -->
+
+            <div class="probability-card">
+
+                <div class="probability-header">
+
+                    <div>
+
+                        <div class="stat-label">
+                            AVERAGE RECOVERY PROBABILITY
+                        </div>
+
+                        <div
+                            id="averageProbability"
+                            class="probability-value"
+                        >
+                            —
+                        </div>
+
+                    </div>
+
+                    <div class="probability-info">
+                        Based on live AI predictions
+                    </div>
+
+                </div>
+
+                <div class="progress-container">
+
+                    <div
+                        id="averageProbabilityBar"
+                        class="progress-bar"
+                        style="width: 0%"
+                    ></div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==================================================
+                 FINANCIAL METRICS
+                 ================================================== -->
+
+            <div class="financial-card">
+
+                <div class="card-title">
+                    Financial Impact
+                </div>
+
+                <div class="financial-grid">
+
+                    <div class="financial-item">
+
+                        <span class="financial-label">
+                            Total Transaction Value
+                        </span>
+
+                        <strong id="totalTransactionValue">
+                            ₹0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div class="financial-item">
+
+                        <span class="financial-label">
+                            Automated Transaction Value
+                        </span>
+
+                        <strong id="automatedTransactionValue">
+                            ₹0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div class="financial-item">
+
+                        <span class="financial-label">
+                            Review Transaction Value
+                        </span>
+
+                        <strong id="reviewTransactionValue">
+                            ₹0.00
+                        </strong>
+
+                    </div>
+
+
+                    <div class="financial-item highlight">
+
+                        <span class="financial-label">
+                            Estimated Recovery Opportunity
+                        </span>
+
+                        <strong id="potentialRecoverableValue">
+                            ₹0.00
+                        </strong>
+
+                    </div>
+
+                </div>
+
+                <p class="financial-note">
+
+                    Estimated recovery opportunity is calculated from
+                    transaction value × AI recovery probability for
+                    AUTOMATE and REVIEW decisions. It is an estimated
+                    opportunity, not actual recovered revenue.
+
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==================================================
+             RECENT AI DECISIONS
+             ================================================== -->
+
+        <section class="recent-section">
+
+            <div class="section-heading">
+
+                <div>
+
+                    <h2>
+                        Recent AI Decisions
+                    </h2>
+
+                    <p>
+                        Latest transactions analyzed by the system
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Transaction ID</th>
+                            <th>Payment</th>
+                            <th>Bank</th>
+                            <th>Amount</th>
+                            <th>Probability</th>
+                            <th>Decision</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="recentTransactions">
+
+                        <tr>
+
+                            <td
+                                colspan="6"
+                                class="loading-cell"
+                            >
+                                Loading transactions...
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==================================================
+             TRANSACTION ANALYSIS
+             ================================================== -->
+
+        <section class="analysis-section">
+
+            <div class="section-heading">
+
+                <div>
+
+                    <h2>
+                        Transaction Analysis
+                    </h2>
+
+                    <p>
+                        Enter failed payment details to generate
+                        an AI recovery decision.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="analysis-layout">
+
+
+                <!-- ==================================================
+                     INPUT FORM
+                     ================================================== -->
+
+                <div class="analysis-card">
+
+                    <form id="transactionForm">
+
+                        <div class="form-grid">
+
+
+                            <div class="form-group">
+
+                                <label for="merchantId">
+                                    Merchant ID
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="merchantId"
+                                    name="merchant_id"
+                                    value="MERCHANT_001"
+                                    placeholder="e.g. MERCHANT_001"
+                                    maxlength="100"
+                                    required
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="customerId">
+                                    Customer ID
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="customerId"
+                                    name="customer_id"
+                                    value="CUSTOMER_001"
+                                    placeholder="e.g. CUSTOMER_001"
+                                    maxlength="100"
+                                    required
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="amount">
+                                    Transaction Amount (₹)
+                                </label>
+
+                                <input
+                                    type="number"
+                                    id="amount"
+                                    name="amount"
+                                    min="1"
+                                    step="0.01"
+                                    value="1200"
+                                    required
+                                >
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="paymentMethod">
+                                    Payment Method
+                                </label>
+
+                                <select
+                                    id="paymentMethod"
+                                    name="payment_method"
+                                >
+
+                                    <option value="UPI">
+                                        UPI
+                                    </option>
+
+                                    <option value="CARD">
+                                        CARD
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="bank">
+                                    Bank
+                                </label>
+
+                                <select
+                                    id="bank"
+                                    name="bank"
+                                >
+
+                                    <option value="HDFC">
+                                        HDFC
+                                    </option>
+
+                                    <option value="SBI">
+                                        SBI
+                                    </option>
+
+                                    <option value="ICICI">
+                                        ICICI
+                                    </option>
+
+                                    <option value="AXIS">
+                                        AXIS
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="failureCode">
+                                    Failure Code
+                                </label>
+
+                                <select
+                                    id="failureCode"
+                                    name="failure_code"
+                                >
+
+                                    <option value="PROCESSING_ERROR">
+                                        PROCESSING_ERROR
+                                    </option>
+
+                                    <option value="INSUFFICIENT_FUNDS">
+                                        INSUFFICIENT_FUNDS
+                                    </option>
+
+                                    <option value="BANK_TIMEOUT">
+                                        BANK_TIMEOUT
+                                    </option>
+
+                                    <option value="CUSTOMER_ACTION_REQUIRED">
+                                        CUSTOMER_ACTION_REQUIRED
+                                    </option>
+
+                                    <option value="CARD_BLOCKED">
+                                        CARD_BLOCKED
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="failureStage">
+                                    Failure Stage
+                                </label>
+
+                                <select
+                                    id="failureStage"
+                                    name="failure_stage"
+                                >
+
+                                    <option value="PAYMENT_PROCESSING">
+                                        PAYMENT_PROCESSING
+                                    </option>
+
+                                    <option value="BANK_AUTHORIZATION">
+                                        BANK_AUTHORIZATION
+                                    </option>
+
+                                    <option value="BANK_RESPONSE">
+                                        BANK_RESPONSE
+                                    </option>
+
+                                    <option value="CUSTOMER_AUTHENTICATION">
+                                        CUSTOMER_AUTHENTICATION
+                                    </option>
+
+                                    <option value="CARD_AUTHORIZATION">
+                                        CARD_AUTHORIZATION
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="retryCount">
+                                    Retry Count
+                                </label>
+
+                                <select
+                                    id="retryCount"
+                                    name="retry_count"
+                                >
+
+                                    <option value="0">0</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+
+                        <label class="checkbox-label">
+
+                            <input
+                                type="checkbox"
+                                id="isRecurring"
+                                name="is_recurring"
+                            >
+
+                            <span>
+                                This is a recurring payment
+                            </span>
+
+                        </label>
+
+
+                        <button
+                            type="submit"
+                            id="analyzeButton"
+                            class="analyze-button"
+                        >
+                            Analyze Transaction
+                        </button>
+
+
+                        <div
+                            id="formError"
+                            class="form-error hidden"
+                        ></div>
+
+                    </form>
+
+                </div>
+
+
+                <!-- ==================================================
+                     AI RESULT
+                     ================================================== -->
+
+                <div class="result-card">
+
+                    <h2>
+                        AI Decision
+                    </h2>
+
+
+                    <!-- FINAL DECISION -->
+
+                    <div class="decision-box">
+
+                        <div class="result-label">
+                            FINAL DECISION
+                        </div>
+
+                        <div
+                            id="decision"
+                            class="decision-value"
+                        >
+                            —
+                        </div>
+
+                    </div>
+
+
+                    <!-- ML PROBABILITY -->
+
+                    <div class="probability-result">
+
+                        <div class="result-label">
+                            ML RECOVERY PROBABILITY
+                        </div>
+
+                        <div
+                            id="recoveryProbability"
+                            class="result-probability"
+                        >
+                            —
+                        </div>
+
+                        <div class="progress-container">
+
+                            <div
+                                id="recoveryProbabilityBar"
+                                class="progress-bar"
+                                style="width: 0%"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- POLICY / RISK -->
+
+                    <div class="policy-result">
+
+                        <div class="result-label">
+                            POLICY &amp; RISK EVALUATION
+                        </div>
+
+                        <div
+                            id="policyEvaluation"
+                            class="policy-value"
+                        >
+                            Awaiting transaction analysis
+                        </div>
+
+                    </div>
+
+
+                    <!-- EXPLAINABILITY -->
+
+                    <div class="explainability-box">
+
+                        <div class="result-label">
+                            WHY THIS DECISION?
+                        </div>
+
+                        <ul id="decisionExplanation">
+
+                            <li>
+                                Analyze a transaction to see
+                                the decision explanation.
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+                    <!-- DECISION REASON -->
+
+                    <div class="reason-box">
+
+                        <div class="result-label">
+                            DECISION REASON
+                        </div>
+
+                        <p id="decisionReason">
+                            Analyze a transaction to see
+                            the AI decision.
+                        </p>
+
+                    </div>
+
+
+                    <!-- TRANSACTION ID -->
+
+                    <div
+                        id="transactionResult"
+                        class="transaction-result hidden"
+                    >
+
+                        <span>
+                            Transaction ID
+                        </span>
+
+                        <strong id="resultTransactionId">
+                            —
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ==================================================
+             FOOTER
+             ================================================== -->
+
+        <footer>
+
+            Payment Recovery AI
+
+            <span>•</span>
+
+            Intelligent transaction recovery
+
+        </footer>
+
+    </div>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
