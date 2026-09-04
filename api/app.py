@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from policy.decision_engine import evaluate_transaction
@@ -17,6 +17,17 @@ from data.transaction_store import (
 # ============================================================
 # APP INITIALIZATION
 # ============================================================
+
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
+FRONTEND_DIR = os.path.join(
+    BASE_DIR,
+    "frontend"
+)
 
 app = Flask(__name__)
 CORS(app)
@@ -77,7 +88,11 @@ def build_transaction(data, transaction_id):
     }
 
 
-def build_prediction_response(transaction, prediction, simulation):
+def build_prediction_response(
+    transaction,
+    prediction,
+    simulation
+):
     """
     Combine transaction, ML prediction, policy decision,
     and recovery simulation into a single API response.
@@ -87,30 +102,95 @@ def build_prediction_response(transaction, prediction, simulation):
         "transaction_id": transaction["transaction_id"],
 
         # ML
-        "recovery_probability": prediction["recovery_probability"],
+        "recovery_probability":
+            prediction["recovery_probability"],
 
         # Policy
         "decision": prediction["decision"],
         "risk_level": prediction["risk_level"],
         "policy_rule": prediction["policy_rule"],
         "reason": prediction["reason"],
-        "explanation": prediction.get("explanation", []),
+        "explanation": prediction.get(
+            "explanation",
+            []
+        ),
 
         # Recovery simulation
-        "recovery_attempted": simulation["recovery_attempted"],
-        "recovery_result": simulation["recovery_result"],
-        "recovered_amount": simulation["recovered_amount"],
-        "stopped_reason": simulation["stopped_reason"],
-        "simulation_score": simulation["simulation_score"],
+        "recovery_attempted":
+            simulation["recovery_attempted"],
+
+        "recovery_result":
+            simulation["recovery_result"],
+
+        "recovered_amount":
+            simulation["recovered_amount"],
+
+        "stopped_reason":
+            simulation["stopped_reason"],
+
+        "simulation_score":
+            simulation["simulation_score"],
     }
 
 
 # ============================================================
-# ROOT
+# FRONTEND
 # ============================================================
 
 @app.route("/", methods=["GET"])
 def home():
+    """
+    Serve the existing frontend dashboard.
+
+    The frontend is intentionally kept in the existing
+    frontend/ directory and is not replaced.
+    """
+
+    return send_from_directory(
+        FRONTEND_DIR,
+        "index.html"
+    )
+
+
+@app.route("/<path:path>", methods=["GET"])
+def frontend_static(path):
+    """
+    Serve frontend static files such as:
+
+        /style.css
+        /script.js
+
+    API routes are defined separately below.
+    """
+
+    file_path = os.path.join(
+        FRONTEND_DIR,
+        path
+    )
+
+    if os.path.isfile(file_path):
+        return send_from_directory(
+            FRONTEND_DIR,
+            path
+        )
+
+    return jsonify({
+        "success": False,
+        "error": "Resource not found",
+    }), 404
+
+
+# ============================================================
+# API INFORMATION
+# ============================================================
+
+@app.route("/api-info", methods=["GET"])
+def api_info():
+    """
+    Return API information without interfering with
+    the frontend root route.
+    """
+
     return jsonify({
         "success": True,
         "service": "Payment Recovery AI",
@@ -197,7 +277,9 @@ def predict():
         # ML + Policy Evaluation
         # ----------------------------------------------------
 
-        prediction = evaluate_transaction(transaction)
+        prediction = evaluate_transaction(
+            transaction
+        )
 
         # ----------------------------------------------------
         # Recovery Simulation
@@ -206,26 +288,42 @@ def predict():
         simulation = simulate_recovery(
             transaction_id=transaction["transaction_id"],
             amount=transaction["amount"],
-            recovery_probability=prediction["recovery_probability"],
+            recovery_probability=prediction[
+                "recovery_probability"
+            ],
             decision=prediction["decision"],
             reason=prediction["reason"],
         )
 
         # ----------------------------------------------------
-        # Add prediction information to transaction
+        # Add prediction information
         # ----------------------------------------------------
 
         transaction["recovery_probability"] = (
             prediction["recovery_probability"]
         )
 
-        transaction["decision"] = prediction["decision"]
-        transaction["risk_level"] = prediction["risk_level"]
-        transaction["policy_rule"] = prediction["policy_rule"]
-        transaction["reason"] = prediction["reason"]
-        transaction["explanation"] = prediction.get(
-            "explanation",
-            []
+        transaction["decision"] = (
+            prediction["decision"]
+        )
+
+        transaction["risk_level"] = (
+            prediction["risk_level"]
+        )
+
+        transaction["policy_rule"] = (
+            prediction["policy_rule"]
+        )
+
+        transaction["reason"] = (
+            prediction["reason"]
+        )
+
+        transaction["explanation"] = (
+            prediction.get(
+                "explanation",
+                []
+            )
         )
 
         # ----------------------------------------------------
@@ -322,9 +420,14 @@ def batch_simulate():
             "error": "Request must contain valid JSON"
         }), 400
 
-    transactions = data.get("transactions")
+    transactions = data.get(
+        "transactions"
+    )
 
-    if not isinstance(transactions, list):
+    if not isinstance(
+        transactions,
+        list
+    ):
         return jsonify({
             "success": False,
             "error": "'transactions' must be a list"
@@ -338,24 +441,12 @@ def batch_simulate():
 
     try:
         # ----------------------------------------------------
-        # IMPORTANT ID FIX
-        # ----------------------------------------------------
-        # Reserve a starting ID ONCE.
-        #
-        # Previously calling get_next_transaction_id()
-        # inside every loop iteration could return the same
-        # ID because batch results are not being saved.
-        #
-        # Example:
-        #   batch_start_id = 5036
-        #
-        #   index 0 -> 5036
-        #   index 1 -> 5037
-        #   index 2 -> 5038
-        #   ...
+        # Reserve starting ID ONCE
         # ----------------------------------------------------
 
-        batch_start_id = int(get_next_transaction_id())
+        batch_start_id = int(
+            get_next_transaction_id()
+        )
 
         # ----------------------------------------------------
         # Metrics
@@ -379,13 +470,14 @@ def batch_simulate():
         # Process every transaction
         # ----------------------------------------------------
 
-        for index, item in enumerate(transactions):
+        for index, item in enumerate(
+            transactions
+        ):
 
-            # -----------------------------------------------
-            # Validate item type
-            # -----------------------------------------------
-
-            if not isinstance(item, dict):
+            if not isinstance(
+                item,
+                dict
+            ):
                 return jsonify({
                     "success": False,
                     "error": (
@@ -394,11 +486,9 @@ def batch_simulate():
                     ),
                 }), 400
 
-            # -----------------------------------------------
-            # Validate required fields
-            # -----------------------------------------------
-
-            missing_fields = validate_transaction(item)
+            missing_fields = validate_transaction(
+                item
+            )
 
             if missing_fields:
                 return jsonify({
@@ -407,45 +497,60 @@ def batch_simulate():
                         f"Transaction at index {index} "
                         "is missing required fields"
                     ),
-                    "missing_fields": missing_fields,
+                    "missing_fields":
+                        missing_fields,
                 }), 400
 
-            # -----------------------------------------------
+            # ------------------------------------------------
             # Unique batch transaction ID
-            # -----------------------------------------------
+            # ------------------------------------------------
 
-            transaction_id = batch_start_id + index
+            transaction_id = (
+                batch_start_id + index
+            )
 
             transaction = build_transaction(
                 item,
                 transaction_id
             )
 
-            # -----------------------------------------------
+            # ------------------------------------------------
             # ML + Policy
-            # -----------------------------------------------
+            # ------------------------------------------------
 
-            prediction = evaluate_transaction(transaction)
+            prediction = evaluate_transaction(
+                transaction
+            )
 
-            decision = prediction["decision"]
-            amount = transaction["amount"]
-            probability = prediction["recovery_probability"]
+            decision = prediction[
+                "decision"
+            ]
 
-            # -----------------------------------------------
+            amount = transaction[
+                "amount"
+            ]
+
+            probability = prediction[
+                "recovery_probability"
+            ]
+
+            # ------------------------------------------------
             # Recovery simulation
-            # -----------------------------------------------
+            # ------------------------------------------------
 
             simulation = simulate_recovery(
-                transaction_id=transaction["transaction_id"],
+                transaction_id=
+                    transaction["transaction_id"],
                 amount=amount,
-                recovery_probability=probability,
+                recovery_probability=
+                    probability,
                 decision=decision,
                 reason=prediction["reason"],
             )
 
-            # -----------------------------------------------
+            # ------------------------------------------------
             # Decision counts + values
-            # -----------------------------------------------
+            # ------------------------------------------------
 
             if decision == "AUTOMATE":
 
@@ -464,52 +569,70 @@ def batch_simulate():
                 do_not_recover_value += amount
                 stopped_value += amount
 
-            # -----------------------------------------------
+            # ------------------------------------------------
             # Recovered amount
-            # -----------------------------------------------
+            # ------------------------------------------------
 
             simulated_recovered_amount += float(
                 simulation["recovered_amount"]
             )
 
-            # -----------------------------------------------
-            # Store result for response
-            # -----------------------------------------------
+            # ------------------------------------------------
+            # Store result
+            # ------------------------------------------------
 
             results.append({
-                "transaction_id": transaction["transaction_id"],
+                "transaction_id":
+                    transaction["transaction_id"],
 
-                "amount": amount,
+                "amount":
+                    amount,
 
-                # ML
-                "recovery_probability": probability,
+                "recovery_probability":
+                    probability,
 
-                # Policy
-                "decision": decision,
-                "risk_level": prediction["risk_level"],
-                "policy_rule": prediction["policy_rule"],
-                "reason": prediction["reason"],
-                "explanation": prediction.get(
-                    "explanation",
-                    []
-                ),
+                "decision":
+                    decision,
 
-                # Simulation
-                "recovery_attempted": (
-                    simulation["recovery_attempted"]
-                ),
-                "recovery_result": (
-                    simulation["recovery_result"]
-                ),
-                "recovered_amount": (
-                    simulation["recovered_amount"]
-                ),
-                "stopped_reason": (
-                    simulation["stopped_reason"]
-                ),
-                "simulation_score": (
-                    simulation["simulation_score"]
-                ),
+                "risk_level":
+                    prediction["risk_level"],
+
+                "policy_rule":
+                    prediction["policy_rule"],
+
+                "reason":
+                    prediction["reason"],
+
+                "explanation":
+                    prediction.get(
+                        "explanation",
+                        []
+                    ),
+
+                "recovery_attempted":
+                    simulation[
+                        "recovery_attempted"
+                    ],
+
+                "recovery_result":
+                    simulation[
+                        "recovery_result"
+                    ],
+
+                "recovered_amount":
+                    simulation[
+                        "recovered_amount"
+                    ],
+
+                "stopped_reason":
+                    simulation[
+                        "stopped_reason"
+                    ],
+
+                "simulation_score":
+                    simulation[
+                        "simulation_score"
+                    ],
             })
 
         # ----------------------------------------------------
@@ -544,54 +667,69 @@ def batch_simulate():
             ),
 
             "metrics": {
-                "processed_count": len(results),
+                "processed_count":
+                    len(results),
 
-                "automate_count": automate_count,
-                "review_count": review_count,
-                "do_not_recover_count": do_not_recover_count,
+                "automate_count":
+                    automate_count,
 
-                "automate_value": round(
-                    automate_value,
-                    2
-                ),
+                "review_count":
+                    review_count,
 
-                "review_value": round(
-                    review_value,
-                    2
-                ),
+                "do_not_recover_count":
+                    do_not_recover_count,
 
-                "do_not_recover_value": round(
-                    do_not_recover_value,
-                    2
-                ),
+                "automate_value":
+                    round(
+                        automate_value,
+                        2
+                    ),
 
-                "total_transaction_value": round(
-                    total_transaction_value,
-                    2
-                ),
+                "review_value":
+                    round(
+                        review_value,
+                        2
+                    ),
 
-                "simulated_recovered_amount": round(
-                    simulated_recovered_amount,
-                    2
-                ),
+                "do_not_recover_value":
+                    round(
+                        do_not_recover_value,
+                        2
+                    ),
 
-                "recovery_rate": round(
-                    recovery_rate,
-                    2
-                ),
+                "total_transaction_value":
+                    round(
+                        total_transaction_value,
+                        2
+                    ),
 
-                "pending_review_value": round(
-                    pending_review_value,
-                    2
-                ),
+                "simulated_recovered_amount":
+                    round(
+                        simulated_recovered_amount,
+                        2
+                    ),
 
-                "stopped_value": round(
-                    stopped_value,
-                    2
-                ),
+                "recovery_rate":
+                    round(
+                        recovery_rate,
+                        2
+                    ),
+
+                "pending_review_value":
+                    round(
+                        pending_review_value,
+                        2
+                    ),
+
+                "stopped_value":
+                    round(
+                        stopped_value,
+                        2
+                    ),
             },
 
-            "transactions": results,
+            "transactions":
+                results,
         })
 
     except Exception as exc:
@@ -605,8 +743,12 @@ def batch_simulate():
 # ALL TRANSACTIONS
 # ============================================================
 
-@app.route("/transactions", methods=["GET"])
+@app.route(
+    "/transactions",
+    methods=["GET"]
+)
 def transactions():
+
     try:
         records = get_all_transactions()
 
@@ -627,7 +769,10 @@ def transactions():
 # RECENT TRANSACTIONS
 # ============================================================
 
-@app.route("/transactions/recent", methods=["GET"])
+@app.route(
+    "/transactions/recent",
+    methods=["GET"]
+)
 def recent_transactions():
 
     try:
@@ -637,7 +782,9 @@ def recent_transactions():
             type=int
         )
 
-        records = get_recent_transactions(limit)
+        records = get_recent_transactions(
+            limit
+        )
 
         return jsonify({
             "success": True,
@@ -660,7 +807,9 @@ def recent_transactions():
     "/transactions/<transaction_id>",
     methods=["GET"]
 )
-def transaction_by_id(transaction_id):
+def transaction_by_id(
+    transaction_id
+):
 
     try:
         transaction = get_transaction_by_id(
@@ -689,7 +838,10 @@ def transaction_by_id(transaction_id):
 # TRANSACTION STATISTICS
 # ============================================================
 
-@app.route("/transactions/stats", methods=["GET"])
+@app.route(
+    "/transactions/stats",
+    methods=["GET"]
+)
 def transaction_stats():
 
     try:
@@ -698,18 +850,24 @@ def transaction_stats():
         total = len(records)
 
         automate_count = sum(
-            1 for r in records
-            if r.get("decision") == "AUTOMATE"
+            1
+            for r in records
+            if r.get("decision")
+            == "AUTOMATE"
         )
 
         review_count = sum(
-            1 for r in records
-            if r.get("decision") == "REVIEW"
+            1
+            for r in records
+            if r.get("decision")
+            == "REVIEW"
         )
 
         do_not_recover_count = sum(
-            1 for r in records
-            if r.get("decision") == "DO_NOT_RECOVER"
+            1
+            for r in records
+            if r.get("decision")
+            == "DO_NOT_RECOVER"
         )
 
         # ----------------------------------------------------
@@ -717,26 +875,49 @@ def transaction_stats():
         # ----------------------------------------------------
 
         total_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             for r in records
         )
 
         automated_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             for r in records
-            if r.get("decision") == "AUTOMATE"
+            if r.get("decision")
+            == "AUTOMATE"
         )
 
         review_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             for r in records
-            if r.get("decision") == "REVIEW"
+            if r.get("decision")
+            == "REVIEW"
         )
 
         blocked_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             for r in records
-            if r.get("decision") == "DO_NOT_RECOVER"
+            if r.get("decision")
+            == "DO_NOT_RECOVER"
         )
 
         # ----------------------------------------------------
@@ -746,6 +927,7 @@ def transaction_stats():
         probabilities = []
 
         for r in records:
+
             probability = r.get(
                 "recovery_probability"
             )
@@ -754,11 +936,16 @@ def transaction_stats():
                 None,
                 "",
             ):
+
                 try:
                     probabilities.append(
                         float(probability)
                     )
-                except (ValueError, TypeError):
+
+                except (
+                    ValueError,
+                    TypeError
+                ):
                     pass
 
         average_recovery_probability = (
@@ -773,7 +960,12 @@ def transaction_stats():
         # ----------------------------------------------------
 
         potential_recoverable_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             * float(
                 r.get(
                     "recovery_probability",
@@ -798,13 +990,24 @@ def transaction_stats():
         )
 
         pending_review_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             for r in records
-            if r.get("recovery_result") == "pending"
+            if r.get("recovery_result")
+            == "pending"
         )
 
         stopped_value = sum(
-            float(r.get("amount", 0) or 0)
+            float(
+                r.get(
+                    "amount",
+                    0
+                ) or 0
+            )
             for r in records
             if r.get("recovery_result")
             == "not_attempted"
@@ -815,17 +1018,22 @@ def transaction_stats():
         # ----------------------------------------------------
 
         automation_rate = (
-            automate_count / total * 100
+            automate_count
+            / total
+            * 100
             if total > 0
             else 0.0
         )
 
         if total_value > 0:
+
             value_recovery_rate = (
                 simulated_recovered_amount
                 / total_value
             ) * 100
+
         else:
+
             value_recovery_rate = 0.0
 
         # ----------------------------------------------------
@@ -836,17 +1044,23 @@ def transaction_stats():
             "success": True,
 
             "stats": {
-                "total": total,
+                "total":
+                    total,
 
-                "automate_count": automate_count,
-                "review_count": review_count,
+                "automate_count":
+                    automate_count,
+
+                "review_count":
+                    review_count,
+
                 "do_not_recover_count":
                     do_not_recover_count,
 
-                "automation_rate": round(
-                    automation_rate,
-                    2
-                ),
+                "automation_rate":
+                    round(
+                        automation_rate,
+                        2
+                    ),
 
                 "average_recovery_probability":
                     round(
@@ -854,25 +1068,29 @@ def transaction_stats():
                         4
                     ),
 
-                "total_value": round(
-                    total_value,
-                    2
-                ),
+                "total_value":
+                    round(
+                        total_value,
+                        2
+                    ),
 
-                "automated_value": round(
-                    automated_value,
-                    2
-                ),
+                "automated_value":
+                    round(
+                        automated_value,
+                        2
+                    ),
 
-                "review_value": round(
-                    review_value,
-                    2
-                ),
+                "review_value":
+                    round(
+                        review_value,
+                        2
+                    ),
 
-                "blocked_value": round(
-                    blocked_value,
-                    2
-                ),
+                "blocked_value":
+                    round(
+                        blocked_value,
+                        2
+                    ),
 
                 "potential_recoverable_value":
                     round(
@@ -907,6 +1125,7 @@ def transaction_stats():
         })
 
     except Exception as exc:
+
         return jsonify({
             "success": False,
             "error": str(exc),
