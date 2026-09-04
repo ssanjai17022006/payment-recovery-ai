@@ -1,27 +1,88 @@
 const API_BASE_URL = "http://127.0.0.1:5000";
 
 
-// ============================================================
-// DOM REFERENCES
-// ============================================================
+/* =========================================================
+   HELPERS
+   ========================================================= */
 
-const apiStatus =
-    document.getElementById("apiStatus");
+function formatPercent(value) {
+    const number = Number(value);
 
-const apiStatusText =
-    document.getElementById("apiStatusText");
+    if (!Number.isFinite(number)) {
+        return "0.00%";
+    }
 
-const refreshDashboard =
-    document.getElementById("refreshDashboard");
+    return `${(number * 100).toFixed(2)}%`;
+}
+
+
+function formatCurrency(value) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return "₹0.00";
+    }
+
+    return `₹${number.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
+
+
+function formatNumber(value) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return "0";
+    }
+
+    return number.toLocaleString("en-IN");
+}
+
+
+function normalizeProbability(value) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return 0;
+    }
+
+    if (number > 1) {
+        return number / 100;
+    }
+
+    return Math.max(0, Math.min(number, 1));
+}
+
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+/* =========================================================
+   DOM REFERENCES
+   ========================================================= */
+
+const healthStatus =
+    document.getElementById("healthStatus");
+
+const refreshButton =
+    document.getElementById("refreshButton");
 
 const transactionForm =
     document.getElementById("transactionForm");
 
-const analyzeButton =
-    document.getElementById("analyzeButton");
 
-
-// Dashboard
+/* =========================================================
+   DASHBOARD KPI REFERENCES
+   ========================================================= */
 
 const totalTransactions =
     document.getElementById("totalTransactions");
@@ -56,294 +117,298 @@ const reviewTransactionValue =
 const potentialRecoverableValue =
     document.getElementById("potentialRecoverableValue");
 
+const simulatedRecoveredAmount =
+    document.getElementById("simulatedRecoveredAmount");
+
+const pendingReviewValue =
+    document.getElementById("pendingReviewValue");
+
+const stoppedValue =
+    document.getElementById("stoppedValue");
+
 const recentTransactions =
     document.getElementById("recentTransactions");
 
 
-// Result panel
+/* =========================================================
+   MODEL SIGNAL REFERENCES
+   ========================================================= */
+
+const dashboardProbabilityDisplay =
+    document.getElementById(
+        "dashboardProbabilityDisplay"
+    );
+
+const dashboardProbabilityBar =
+    document.getElementById(
+        "dashboardProbabilityBar"
+    );
+
+
+/* =========================================================
+   FINANCIAL RECOVERY OVERVIEW REFERENCES
+   ========================================================= */
+
+const financialTotalValue =
+    document.getElementById(
+        "financialTotalValue"
+    );
+
+const financialAutomatedValue =
+    document.getElementById(
+        "financialAutomatedValue"
+    );
+
+const financialReviewValue =
+    document.getElementById(
+        "financialReviewValue"
+    );
+
+const financialPotentialValue =
+    document.getElementById(
+        "financialPotentialValue"
+    );
+
+
+/* =========================================================
+   RESULT REFERENCES
+   ========================================================= */
+
+/*
+ * The original HTML did not contain id="transactionResult".
+ * Therefore we support both:
+ *
+ * 1. id="transactionResult"
+ * 2. .transaction-result
+ */
+const transactionResult =
+    document.getElementById("transactionResult") ||
+    document.querySelector(".transaction-result");
+
+const resultTransactionId =
+    document.getElementById(
+        "resultTransactionId"
+    );
 
 const decision =
     document.getElementById("decision");
 
 const recoveryProbability =
-    document.getElementById("recoveryProbability");
+    document.getElementById(
+        "recoveryProbability"
+    );
 
 const recoveryProbabilityBar =
-    document.getElementById("recoveryProbabilityBar");
+    document.getElementById(
+        "recoveryProbabilityBar"
+    );
 
 const policyEvaluation =
-    document.getElementById("policyEvaluation");
+    document.getElementById(
+        "policyEvaluation"
+    );
 
 const decisionExplanation =
-    document.getElementById("decisionExplanation");
+    document.getElementById(
+        "decisionExplanation"
+    );
 
 const decisionReason =
-    document.getElementById("decisionReason");
-
-const transactionResult =
-    document.getElementById("transactionResult");
-
-const resultTransactionId =
-    document.getElementById("resultTransactionId");
+    document.getElementById(
+        "decisionReason"
+    );
 
 const formError =
     document.getElementById("formError");
 
 
-// ============================================================
-// PAGE INITIALIZATION
-// ============================================================
+/* =========================================================
+   RECOVERY SIMULATION REFERENCES
+   ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+const recoverySimulation =
+    document.getElementById(
+        "recoverySimulation"
+    );
 
-    checkAPIHealth();
+const recoveryResult =
+    document.getElementById(
+        "recoveryResult"
+    );
 
-    loadDashboardStats();
+const recoveredAmount =
+    document.getElementById(
+        "recoveredAmount"
+    );
 
-    loadRecentTransactions();
 
-});
+/* =========================================================
+   API HEALTH
+   ========================================================= */
 
-
-// ============================================================
-// API HEALTH CHECK
-// ============================================================
-
-async function checkAPIHealth() {
+async function checkApiHealth() {
+    if (!healthStatus) {
+        return;
+    }
 
     try {
-
-        const response =
-            await fetch(
-                `${API_BASE_URL}/health`
-            );
+        const response = await fetch(
+            `${API_BASE_URL}/health`
+        );
 
         if (!response.ok) {
-
             throw new Error(
                 "API unavailable"
             );
         }
 
-        const data =
-            await response.json();
+        const data = await response.json();
 
+        if (
+            data.success ||
+            data.status === "ok" ||
+            data.status === "healthy"
+        ) {
+            healthStatus.textContent =
+                "API Connected";
 
-        if (data.status === "healthy") {
+            healthStatus.classList.remove(
+                "offline"
+            );
 
-            if (apiStatusText) {
-
-                apiStatusText.textContent =
-                    "API Connected";
-            }
-
-            if (apiStatus) {
-
-                apiStatus.classList.remove(
-                    "checking",
-                    "disconnected"
-                );
-
-                apiStatus.classList.add(
-                    "connected"
-                );
-            }
-
+            healthStatus.classList.add(
+                "online"
+            );
         } else {
-
-            if (apiStatusText) {
-
-                apiStatusText.textContent =
-                    "API Unhealthy";
-            }
-
-            if (apiStatus) {
-
-                apiStatus.classList.remove(
-                    "checking",
-                    "connected"
-                );
-
-                apiStatus.classList.add(
-                    "disconnected"
-                );
-            }
+            throw new Error(
+                "Invalid health response"
+            );
         }
 
     } catch (error) {
-
         console.error(
-            "API health check failed:",
+            "Health check failed:",
             error
         );
 
-        if (apiStatusText) {
+        healthStatus.textContent =
+            "API Disconnected";
 
-            apiStatusText.textContent =
-                "API Offline";
-        }
+        healthStatus.classList.remove(
+            "online"
+        );
 
-        if (apiStatus) {
-
-            apiStatus.classList.remove(
-                "checking",
-                "connected"
-            );
-
-            apiStatus.classList.add(
-                "disconnected"
-            );
-        }
+        healthStatus.classList.add(
+            "offline"
+        );
     }
 }
 
 
-// ============================================================
-// REFRESH BUTTON
-// ============================================================
-
-if (refreshDashboard) {
-
-    refreshDashboard.addEventListener(
-        "click",
-        async () => {
-
-            refreshDashboard.disabled = true;
-
-            refreshDashboard.textContent =
-                "Refreshing...";
-
-            await Promise.all([
-                checkAPIHealth(),
-                loadDashboardStats(),
-                loadRecentTransactions()
-            ]);
-
-            refreshDashboard.disabled = false;
-
-            refreshDashboard.textContent =
-                "Refresh";
-        }
-    );
-}
-
-
-// ============================================================
-// LOAD DASHBOARD STATISTICS
-// ============================================================
+/* =========================================================
+   DASHBOARD STATS
+   ========================================================= */
 
 async function loadDashboardStats() {
-
     try {
-
-        const response =
-            await fetch(
-                `${API_BASE_URL}/transactions/stats`
-            );
+        const response = await fetch(
+            `${API_BASE_URL}/transactions/stats`
+        );
 
         if (!response.ok) {
-
             throw new Error(
-                "Failed to load statistics"
+                `Stats request failed: ${response.status}`
+            );
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(
+                data.message ||
+                "Unable to load statistics"
             );
         }
 
         const stats =
-            await response.json();
-
-        console.log(
-            "Dashboard stats:",
-            stats
-        );
+            data.stats || {};
 
 
-        // ----------------------------------------------------
-        // KPI COUNTS
-        // ----------------------------------------------------
+        /* ---------------------------------------------
+           TRANSACTION COUNTS
+        --------------------------------------------- */
 
         if (totalTransactions) {
-
             totalTransactions.textContent =
-                stats.total_transactions ?? 0;
+                formatNumber(
+                    stats.total ??
+                    stats.total_transactions ??
+                    0
+                );
         }
 
         if (automateCount) {
-
             automateCount.textContent =
-                stats.automate_count ?? 0;
+                formatNumber(
+                    stats.automate_count ??
+                    stats.automated_count ??
+                    0
+                );
         }
 
         if (reviewCount) {
-
             reviewCount.textContent =
-                stats.review_count ?? 0;
+                formatNumber(
+                    stats.review_count ??
+                    0
+                );
         }
 
         if (doNotRecoverCount) {
-
             doNotRecoverCount.textContent =
-                stats.do_not_recover_count ?? 0;
+                formatNumber(
+                    stats.do_not_recover_count ??
+                    stats.do_not_recover ??
+                    0
+                );
         }
 
 
-        // ----------------------------------------------------
-        // AUTOMATION RATE
-        // ----------------------------------------------------
-
-        let rate =
-            stats.automation_rate;
-
-
-        if (
-            rate === undefined ||
-            rate === null
-        ) {
-
-            const total =
-                Number(
-                    stats.total_transactions ?? 0
-                );
-
-            const automate =
-                Number(
-                    stats.automate_count ?? 0
-                );
-
-            rate =
-                total > 0
-                    ? (automate / total) * 100
-                    : 0;
-        }
-
+        /* ---------------------------------------------
+           AUTOMATION RATE
+        --------------------------------------------- */
 
         if (automationRate) {
+            const rate =
+                Number(
+                    stats.automation_rate ??
+                    0
+                );
 
             automationRate.textContent =
-                `${Number(rate).toFixed(1)}%`;
+                `${rate.toFixed(2)}%`;
         }
 
 
-        // ----------------------------------------------------
-        // AVERAGE PROBABILITY
-        // ----------------------------------------------------
+        /* ---------------------------------------------
+           AVERAGE RECOVERY PROBABILITY
+        --------------------------------------------- */
 
         const avgProbability =
-            Number(
-                stats.average_recovery_probability ?? 0
+            normalizeProbability(
+                stats.average_recovery_probability ??
+                stats.average_probability ??
+                0
             );
 
-
         if (averageProbability) {
-
             averageProbability.textContent =
-                `${(
-                    avgProbability * 100
-                ).toFixed(2)}%`;
+                formatPercent(
+                    avgProbability
+                );
         }
 
-
         if (averageProbabilityBar) {
-
             averageProbabilityBar.style.width =
                 `${Math.min(
                     avgProbability * 100,
@@ -352,47 +417,143 @@ async function loadDashboardStats() {
         }
 
 
-        // ----------------------------------------------------
-        // FINANCIAL METRICS
-        // ----------------------------------------------------
+        /* ---------------------------------------------
+           MODEL SIGNAL
+        --------------------------------------------- */
+
+        if (dashboardProbabilityDisplay) {
+            dashboardProbabilityDisplay.textContent =
+                formatPercent(
+                    avgProbability
+                );
+        }
+
+        if (dashboardProbabilityBar) {
+            dashboardProbabilityBar.style.width =
+                `${Math.min(
+                    avgProbability * 100,
+                    100
+                )}%`;
+        }
+
+
+        /* ---------------------------------------------
+           TRANSACTION VALUES
+        --------------------------------------------- */
+
+        const totalValue =
+            stats.total_value ??
+            stats.total_transaction_value ??
+            0;
+
+        const automatedValue =
+            stats.automated_value ??
+            stats.automated_transaction_value ??
+            0;
+
+        const reviewValue =
+            stats.review_value ??
+            stats.review_transaction_value ??
+            0;
+
+        const potentialValue =
+            stats.potential_recoverable_value ??
+            0;
+
 
         if (totalTransactionValue) {
-
             totalTransactionValue.textContent =
                 formatCurrency(
-                    stats.total_transaction_value
+                    totalValue
                 );
         }
-
 
         if (automatedTransactionValue) {
-
             automatedTransactionValue.textContent =
                 formatCurrency(
-                    stats.automated_transaction_value
+                    automatedValue
                 );
         }
-
 
         if (reviewTransactionValue) {
-
             reviewTransactionValue.textContent =
                 formatCurrency(
-                    stats.review_transaction_value
+                    reviewValue
+                );
+        }
+
+        if (potentialRecoverableValue) {
+            potentialRecoverableValue.textContent =
+                formatCurrency(
+                    potentialValue
                 );
         }
 
 
-        if (potentialRecoverableValue) {
+        /* ---------------------------------------------
+           FINANCIAL RECOVERY OVERVIEW
+        --------------------------------------------- */
 
-            potentialRecoverableValue.textContent =
+        if (financialTotalValue) {
+            financialTotalValue.textContent =
                 formatCurrency(
-                    stats.potential_recoverable_value
+                    totalValue
+                );
+        }
+
+        if (financialAutomatedValue) {
+            financialAutomatedValue.textContent =
+                formatCurrency(
+                    automatedValue
+                );
+        }
+
+        if (financialReviewValue) {
+            financialReviewValue.textContent =
+                formatCurrency(
+                    reviewValue
+                );
+        }
+
+        if (financialPotentialValue) {
+            financialPotentialValue.textContent =
+                formatCurrency(
+                    potentialValue
+                );
+
+
+        }
+
+
+        /* ---------------------------------------------
+           RECOVERY SIMULATION METRICS
+        --------------------------------------------- */
+
+        if (simulatedRecoveredAmount) {
+            simulatedRecoveredAmount.textContent =
+                formatCurrency(
+                    stats.simulated_recovered_amount ??
+                    0
+                );
+        }
+
+        if (pendingReviewValue) {
+            pendingReviewValue.textContent =
+                formatCurrency(
+                    stats.pending_review_value ??
+                    0
+                );
+        }
+
+        if (stoppedValue) {
+            stoppedValue.textContent =
+                formatCurrency(
+                    stats.stopped_value ??
+                    0
                 );
         }
 
     } catch (error) {
-
         console.error(
             "Failed to load dashboard statistics:",
             error
@@ -401,285 +562,248 @@ async function loadDashboardStats() {
 }
 
 
-// ============================================================
-// LOAD RECENT TRANSACTIONS
-// ============================================================
+/* =========================================================
+   RECENT TRANSACTIONS
+   ========================================================= */
 
 async function loadRecentTransactions() {
+    if (!recentTransactions) {
+        return;
+    }
 
     try {
-
-        const response =
-            await fetch(
-                `${API_BASE_URL}/transactions/recent`
-            );
+        const response = await fetch(
+            `${API_BASE_URL}/transactions/recent`
+        );
 
         if (!response.ok) {
-
             throw new Error(
-                "Failed to load recent transactions"
+                `Recent transactions request failed: ${response.status}`
             );
         }
 
         const data =
             await response.json();
 
-
-        console.log(
-            "Recent transactions:",
-            data
-        );
-
-
         const transactions =
             Array.isArray(data)
                 ? data
-                : data.transactions || [];
-
+                : (
+                    data.transactions ||
+                    []
+                );
 
         renderRecentTransactions(
             transactions
         );
 
     } catch (error) {
-
         console.error(
             "Failed to load recent transactions:",
             error
         );
 
-
-        if (recentTransactions) {
-
-            recentTransactions.innerHTML = `
-                <tr>
-                    <td
-                        colspan="6"
-                        class="error-cell"
-                    >
-                        Unable to load recent transactions
-                    </td>
-                </tr>
-            `;
-        }
+        recentTransactions.innerHTML = `
+            <div class="empty-state">
+                Unable to load recent transactions.
+            </div>
+        `;
     }
 }
 
 
-// ============================================================
-// RENDER RECENT TRANSACTIONS
-// ============================================================
+/* =========================================================
+   RENDER RECENT TRANSACTIONS
+   ========================================================= */
 
 function renderRecentTransactions(
     transactions
 ) {
-
     if (!recentTransactions) {
         return;
     }
-
 
     if (
         !transactions ||
         transactions.length === 0
     ) {
-
         recentTransactions.innerHTML = `
-            <tr>
-                <td
-                    colspan="6"
-                    class="empty-cell"
-                >
-                    No transactions available
-                </td>
-            </tr>
+            <div class="empty-state">
+                No transactions available.
+            </div>
         `;
 
         return;
     }
 
-
     recentTransactions.innerHTML =
-        transactions.map(
-            transaction => {
-
-                const transactionDecision =
-                    transaction.decision ||
-                    "UNKNOWN";
-
+        transactions
+            .map(transaction => {
 
                 const probability =
-                    Number(
-                        transaction.recovery_probability ?? 0
+                    normalizeProbability(
+                        transaction.recovery_probability ??
+                        transaction.probability ??
+                        0
                     );
 
+                const decisionValue =
+                    transaction.decision ||
+                    transaction.action ||
+                    "—";
+
+                const amount =
+                    Number(
+                        transaction.amount ?? 0
+                    );
 
                 return `
-                    <tr>
+                    <div class="transaction-row">
 
-                        <td>
-                            ${escapeHTML(
-                                transaction.transaction_id ||
-                                "-"
+                        <div class="transaction-id">
+                            ${escapeHtml(
+                                transaction.transaction_id ??
+                                "—"
                             )}
-                        </td>
+                        </div>
 
-                        <td>
-                            ${escapeHTML(
-                                transaction.payment_method ||
-                                "-"
+                        <div>
+                            ${escapeHtml(
+                                transaction.payment_method ??
+                                "—"
                             )}
-                        </td>
+                        </div>
 
-                        <td>
-                            ${escapeHTML(
-                                transaction.bank ||
-                                "-"
+                        <div>
+                            ${escapeHtml(
+                                transaction.bank ??
+                                "—"
                             )}
-                        </td>
+                        </div>
 
-                        <td>
+                        <div>
                             ${formatCurrency(
-                                transaction.amount
+                                amount
                             )}
-                        </td>
+                        </div>
 
-                        <td>
-                            ${(probability * 100).toFixed(2)}%
-                        </td>
+                        <div>
+                            ${formatPercent(
+                                probability
+                            )}
+                        </div>
 
-                        <td>
-
-                            <span
-                                class="decision-badge
-                                ${getDecisionClass(
-                                    transactionDecision
-                                )}"
-                            >
-                                ${escapeHTML(
-                                    transactionDecision
+                        <div>
+                            <span class="decision-badge ${getDecisionClass(
+                                decisionValue
+                            )}">
+                                ${escapeHtml(
+                                    decisionValue
                                 )}
                             </span>
+                        </div>
 
-                        </td>
-
-                    </tr>
+                    </div>
                 `;
-            }
-        ).join("");
+            })
+            .join("");
 }
 
 
-// ============================================================
-// TRANSACTION FORM
-// ============================================================
+/* =========================================================
+   DECISION CSS CLASS
+   ========================================================= */
 
-if (transactionForm) {
-
-    transactionForm.addEventListener(
-        "submit",
-        analyzeTransaction
-    );
-}
-
-
-// ============================================================
-// ANALYZE TRANSACTION
-// ============================================================
-
-async function analyzeTransaction(
-    event
+function getDecisionClass(
+    decisionValue
 ) {
+    switch (decisionValue) {
 
-    event.preventDefault();
+        case "AUTOMATE":
+            return "automate";
+
+        case "REVIEW":
+            return "review";
+
+        case "DO_NOT_RECOVER":
+            return "do-not-recover";
+
+        default:
+            return "";
+    }
+}
 
 
-    clearFormError();
+/* =========================================================
+   FORM DATA
+   ========================================================= */
+
+function getFormData() {
+    const formData =
+        new FormData(
+            transactionForm
+        );
+
+    return {
+        payment_method:
+            formData.get(
+                "payment_method"
+            ),
+
+        bank:
+            formData.get("bank"),
+
+        failure_code:
+            formData.get(
+                "failure_code"
+            ),
+
+        failure_stage:
+            formData.get(
+                "failure_stage"
+            ),
+
+        amount:
+            Number(
+                formData.get("amount")
+            ),
+
+        retry_count:
+            Number(
+                formData.get("retry_count")
+            ),
+
+        is_recurring:
+            formData.get(
+                "is_recurring"
+            ) === "true"
+    };
+}
 
 
-    if (analyzeButton) {
+/* =========================================================
+   PREDICTION
+   ========================================================= */
 
-        analyzeButton.disabled = true;
-
-        analyzeButton.textContent =
-            "Analyzing...";
+async function predictTransaction() {
+    if (!transactionForm) {
+        return;
     }
 
+    if (formError) {
+        formError.textContent = "";
+    }
+
+    const transaction =
+        getFormData();
 
     try {
 
-        const formData =
-            new FormData(
-                transactionForm
-            );
-
-
-        // ----------------------------------------------------
-        // Build transaction
-        // ----------------------------------------------------
-
-        const transaction = {
-
-            merchant_id:
-                formData.get(
-                    "merchant_id"
-                ) || "",
-
-            customer_id:
-                formData.get(
-                    "customer_id"
-                ) || "",
-
-            payment_method:
-                formData.get(
-                    "payment_method"
-                ),
-
-            bank:
-                formData.get(
-                    "bank"
-                ),
-
-            failure_code:
-                formData.get(
-                    "failure_code"
-                ),
-
-            failure_stage:
-                formData.get(
-                    "failure_stage"
-                ),
-
-            amount:
-                Number(
-                    formData.get(
-                        "amount"
-                    )
-                ),
-
-            retry_count:
-                Number(
-                    formData.get(
-                        "retry_count"
-                    )
-                ),
-
-            is_recurring:
-                formData.has(
-                    "is_recurring"
-                )
-        };
-
-
-        console.log(
-            "Sending transaction:",
-            transaction
-        );
-
-
-        // ----------------------------------------------------
-        // API REQUEST
-        // ----------------------------------------------------
+        /*
+         * ---------------------------------------------
+         * SEND TRANSACTION TO BACKEND
+         * ---------------------------------------------
+         */
 
         const response =
             await fetch(
@@ -700,750 +824,825 @@ async function analyzeTransaction(
             );
 
 
+        /*
+         * ---------------------------------------------
+         * PARSE RESPONSE
+         * ---------------------------------------------
+         */
+
         const data =
             await response.json();
 
 
-        console.log(
-            "Prediction response:",
-            data
-        );
-
+        /*
+         * ---------------------------------------------
+         * HANDLE API ERROR
+         * ---------------------------------------------
+         */
 
         if (!response.ok) {
-
             throw new Error(
+                data.message ||
                 data.error ||
                 "Prediction failed"
             );
         }
 
 
-        // ----------------------------------------------------
-        // EXTRACT API RESULT
-        // ----------------------------------------------------
+        /*
+         * ---------------------------------------------
+         * RENDER RESULT IMMEDIATELY
+         *
+         * IMPORTANT:
+         * Do NOT wait for dashboard/recent
+         * transactions before rendering the result.
+         * ---------------------------------------------
+         */
 
-        const prediction =
-            data.prediction || data;
-
-
-        const input =
-            data.input || {};
-
-
-        const finalDecision =
-            prediction.decision ||
-            input.decision ||
-            "UNKNOWN";
-
-
-        const probability =
-            Number(
-                prediction.recovery_probability ??
-                input.recovery_probability ??
-                0
-            );
-
-
-        const reason =
-            prediction.reason ||
-            input.reason ||
-            "No decision reason provided";
-
-
-        // IMPORTANT:
-        // Backend is the source of truth for risk level.
-
-        const riskLevel =
-            prediction.risk_level ||
-            input.risk_level ||
-            "";
-
-
-        // IMPORTANT:
-        // Backend is the source of truth for policy rule.
-
-        const policyRule =
-            prediction.policy_rule ||
-            input.policy_rule ||
-            "";
-
-
-        // Backend explanation
-
-        const backendExplanation =
-            Array.isArray(
-                prediction.explanation
-            )
-                ? prediction.explanation
-                : [];
-
-
-        const transactionId =
-            input.transaction_id ||
-            prediction.transaction_id ||
-            "Generated automatically";
-
-
-        // ----------------------------------------------------
-        // UPDATE FINAL DECISION
-        // ----------------------------------------------------
-
-        if (decision) {
-
-            decision.textContent =
-                formatDecision(
-                    finalDecision
-                );
-
-
-            decision.className =
-                `decision-value ${
-                    getDecisionClass(
-                        finalDecision
-                    )
-                }`;
-        }
-
-
-        // ----------------------------------------------------
-        // UPDATE ML PROBABILITY
-        // ----------------------------------------------------
-
-        if (recoveryProbability) {
-
-            recoveryProbability.textContent =
-                `${(
-                    probability * 100
-                ).toFixed(2)}%`;
-        }
-
-
-        if (recoveryProbabilityBar) {
-
-            recoveryProbabilityBar.style.width =
-                `${Math.min(
-                    probability * 100,
-                    100
-                )}%`;
-        }
-
-
-        // ----------------------------------------------------
-        // UPDATE POLICY EVALUATION
-        // ----------------------------------------------------
-
-        updatePolicyEvaluation(
-            finalDecision,
-            probability,
-            reason,
-            transaction,
-            riskLevel,
-            policyRule
+        updatePredictionResult(
+            data
         );
 
 
-        // ----------------------------------------------------
-        // UPDATE EXPLANATION
-        // ----------------------------------------------------
-
-        updateDecisionExplanation(
-            finalDecision,
-            probability,
-            reason,
-            transaction,
-            backendExplanation
-        );
-
-
-        // ----------------------------------------------------
-        // UPDATE DECISION REASON
-        // ----------------------------------------------------
-
-        if (decisionReason) {
-
-            decisionReason.textContent =
-                reason;
-        }
-
-
-        // ----------------------------------------------------
-        // UPDATE TRANSACTION ID
-        // ----------------------------------------------------
+        /*
+         * ---------------------------------------------
+         * SHOW RESULT SECTION
+         * ---------------------------------------------
+         */
 
         if (transactionResult) {
 
-            transactionResult.classList.remove(
-                "hidden"
+            transactionResult.classList.add(
+                "visible"
             );
+
+            /*
+             * Give the browser a moment to
+             * update the DOM before scrolling.
+             */
+            setTimeout(() => {
+
+                transactionResult.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+
+            }, 50);
         }
 
 
-        if (resultTransactionId) {
+        /*
+         * ---------------------------------------------
+         * REFRESH DASHBOARD AFTER RESULT RENDERING
+         *
+         * These operations are intentionally not
+         * allowed to control the result panel.
+         * ---------------------------------------------
+         */
 
-            resultTransactionId.textContent =
-                transactionId;
-        }
-
-
-        // ----------------------------------------------------
-        // REFRESH DASHBOARD
-        // ----------------------------------------------------
-
-        await loadDashboardStats();
-
-        await loadRecentTransactions();
-
+        await Promise.all([
+            loadDashboardStats(),
+            loadRecentTransactions()
+        ]);
 
     } catch (error) {
 
         console.error(
-            "Transaction analysis failed:",
+            "Prediction failed:",
             error
         );
 
-
-        showFormError(
-            error.message
-        );
-
-
-    } finally {
-
-        if (analyzeButton) {
-
-            analyzeButton.disabled = false;
-
-            analyzeButton.textContent =
-                "Analyze Transaction";
+        if (formError) {
+            formError.textContent =
+                error.message ||
+                "Unable to process transaction.";
         }
     }
 }
 
 
-// ============================================================
-// POLICY & RISK EVALUATION
-// ============================================================
+/* =========================================================
+   UPDATE PREDICTION RESULT
+   ========================================================= */
 
-function updatePolicyEvaluation(
-    decisionValue,
-    probability,
-    reason,
-    transaction,
-    riskLevel,
-    policyRule
+function updatePredictionResult(
+    data
 ) {
+    if (!data) {
+        console.error(
+            "updatePredictionResult received empty response"
+        );
 
-    if (!policyEvaluation) {
         return;
     }
 
 
-    // --------------------------------------------------------
-    // Use backend risk level
-    // --------------------------------------------------------
-
-    const displayedRisk =
-        riskLevel
-            ? riskLevel.toUpperCase()
-            : "UNKNOWN";
-
-
-    let evaluation = "";
-
-
-    if (
-        displayedRisk ===
-        "LOW"
-    ) {
-
-        evaluation =
-            "LOW RISK — ";
-
-    } else if (
-        displayedRisk ===
-        "MEDIUM"
-    ) {
-
-        evaluation =
-            "MEDIUM RISK — ";
-
-    } else if (
-        displayedRisk ===
-        "HIGH"
-    ) {
-
-        evaluation =
-            "HIGH RISK — ";
-
-    } else {
-
-        evaluation =
-            "RISK LEVEL UNKNOWN — ";
-    }
-
-
-    // --------------------------------------------------------
-    // Decision-specific message
-    // --------------------------------------------------------
-
-    if (
-        decisionValue ===
-        "AUTOMATE"
-    ) {
-
-        evaluation +=
-            `Recovery probability is ` +
-            `${(
-                probability * 100
-            ).toFixed(2)}%. ` +
-            `Policy permits automated recovery.`;
-
-    } else if (
-        decisionValue ===
-        "REVIEW"
-    ) {
-
-        evaluation +=
-            `Recovery may be possible, ` +
-            `but policy requires additional review ` +
-            `before recovery.`;
-
-    } else if (
-        decisionValue ===
-        "DO_NOT_RECOVER"
-    ) {
-
-        evaluation +=
-            `Policy does not permit ` +
-            `automated recovery for this transaction.`;
-
-    } else {
-
-        evaluation +=
-            "Policy evaluation unavailable.";
-    }
-
-
-    // --------------------------------------------------------
-    // Policy rule
-    // --------------------------------------------------------
-
-    if (policyRule) {
-
-        evaluation +=
-            ` Policy rule: ${policyRule}.`;
-    }
-
-
-    // --------------------------------------------------------
-    // Backend reason
-    // --------------------------------------------------------
-
-    if (reason) {
-
-        evaluation +=
-            ` ${reason}`;
-    }
-
-
-    policyEvaluation.textContent =
-        evaluation;
-
-
-    // --------------------------------------------------------
-    // CSS class
-    // --------------------------------------------------------
-
-    policyEvaluation.classList.remove(
-        "policy-automate",
-        "policy-review",
-        "policy-block"
+    console.log(
+        "Prediction response:",
+        data
     );
 
 
-    if (
-        decisionValue ===
-        "AUTOMATE"
-    ) {
+    /*
+     * Backend response:
+     *
+     * {
+     *     success: true,
+     *     prediction: {...},
+     *     simulation: true
+     * }
+     */
 
-        policyEvaluation.classList.add(
-            "policy-automate"
+    const prediction =
+        data.prediction ||
+        data;
+
+
+    /* ---------------------------------------------
+       DECISION
+    --------------------------------------------- */
+
+    const decisionValue =
+        prediction.decision ||
+        data.decision ||
+        "—";
+
+
+    /* ---------------------------------------------
+       PROBABILITY
+    --------------------------------------------- */
+
+    const probability =
+        normalizeProbability(
+            prediction.recovery_probability ??
+            data.recovery_probability ??
+            0
         );
 
-    } else if (
-        decisionValue ===
-        "REVIEW"
-    ) {
 
-        policyEvaluation.classList.add(
-            "policy-review"
+    /* ---------------------------------------------
+       RISK
+    --------------------------------------------- */
+
+    const riskLevel =
+        prediction.risk_level ||
+        data.risk_level ||
+        "—";
+
+
+    /* ---------------------------------------------
+       POLICY RULE
+    --------------------------------------------- */
+
+    const policyRule =
+        prediction.policy_rule ||
+        data.policy_rule ||
+        "—";
+
+
+    /* ---------------------------------------------
+       EXPLANATION
+    --------------------------------------------- */
+
+    const explanation =
+        prediction.explanation ??
+        data.explanation ??
+        [];
+
+
+    /* ---------------------------------------------
+       REASON
+    --------------------------------------------- */
+
+    const reason =
+        prediction.reason ||
+        data.reason ||
+        "";
+
+
+    /* ---------------------------------------------
+       TRANSACTION ID
+    --------------------------------------------- */
+
+    const transactionId =
+        prediction.transaction_id ||
+        data.transaction_id ||
+        "—";
+
+
+    /*
+     * ---------------------------------------------
+     * RECOVERY SIMULATION
+     *
+     * Current backend may return recovery fields
+     * directly inside prediction rather than
+     * inside data.recovery.
+     *
+     * Therefore support both structures.
+     * ---------------------------------------------
+     */
+
+    const recovery =
+        data.recovery ||
+        prediction.recovery ||
+        (
+            (
+                prediction.recovery_attempted !== undefined
+            ) ||
+            (
+                prediction.recovery_result !== undefined
+            ) ||
+            (
+                prediction.recovered_amount !== undefined
+            ) ||
+            (
+                prediction.stopped_reason !== undefined
+            )
+                ? prediction
+                : null
         );
 
-    } else if (
-        decisionValue ===
-        "DO_NOT_RECOVER"
-    ) {
 
-        policyEvaluation.classList.add(
-            "policy-block"
+    /* ---------------------------------------------
+       TRANSACTION ID
+    --------------------------------------------- */
+
+    if (resultTransactionId) {
+
+        resultTransactionId.textContent =
+            transactionId;
+    }
+
+
+    /* ---------------------------------------------
+       DECISION
+    --------------------------------------------- */
+
+    if (decision) {
+
+        decision.textContent =
+            decisionValue;
+
+        decision.className =
+            `decision-value ${getDecisionClass(
+                decisionValue
+            )}`;
+    }
+
+
+    /* ---------------------------------------------
+       PROBABILITY
+    --------------------------------------------- */
+
+    if (recoveryProbability) {
+
+        recoveryProbability.textContent =
+            formatPercent(
+                probability
+            );
+    }
+
+    if (recoveryProbabilityBar) {
+
+        recoveryProbabilityBar.style.width =
+            `${Math.min(
+                probability * 100,
+                100
+            )}%`;
+    }
+
+
+    /* ---------------------------------------------
+       POLICY
+    --------------------------------------------- */
+
+    updatePolicyEvaluation(
+        riskLevel,
+        policyRule
+    );
+
+
+    /* ---------------------------------------------
+       EXPLANATION
+    --------------------------------------------- */
+
+    updateDecisionExplanation(
+        explanation,
+        reason,
+        prediction
+    );
+
+
+    /* ---------------------------------------------
+       RECOVERY SIMULATION
+    --------------------------------------------- */
+
+    updateRecoverySimulation(
+        recovery
+    );
+
+
+    /* ---------------------------------------------
+       RESULT CONTAINER
+    --------------------------------------------- */
+
+    if (transactionResult) {
+
+        transactionResult.classList.add(
+            "visible"
         );
     }
 }
 
 
-// ============================================================
-// EXPLAINABLE AI DECISION
-// ============================================================
+/* =========================================================
+   POLICY EVALUATION
+   ========================================================= */
+
+function updatePolicyEvaluation(
+    riskLevel,
+    policyRule
+) {
+    if (!policyEvaluation) {
+        return;
+    }
+
+    policyEvaluation.innerHTML = `
+        <div class="policy-risk">
+            <strong>Risk Level:</strong>
+            ${escapeHtml(riskLevel)}
+        </div>
+
+        <div class="policy-rule">
+            <strong>Policy Rule:</strong>
+            ${escapeHtml(policyRule)}
+        </div>
+    `;
+}
+
+
+/* =========================================================
+   DECISION EXPLANATION
+   ========================================================= */
 
 function updateDecisionExplanation(
-    decisionValue,
-    probability,
+    explanation,
     reason,
-    transaction,
-    backendExplanation = []
+    prediction
 ) {
-
     if (!decisionExplanation) {
         return;
     }
 
+    let explanationItems = [];
 
-    // --------------------------------------------------------
-    // Prefer backend explanation
-    // --------------------------------------------------------
 
-    if (
-        Array.isArray(backendExplanation) &&
-        backendExplanation.length > 0
+    /* ---------------------------------------------
+       BACKEND EXPLANATION
+    --------------------------------------------- */
+
+    if (Array.isArray(explanation)) {
+
+        explanationItems =
+            explanation.filter(
+                item =>
+                    item !== null &&
+                    item !== undefined
+            );
+
+    } else if (
+        typeof explanation === "string"
     ) {
 
-        decisionExplanation.innerHTML =
-            backendExplanation.map(
-                item => `
-                    <li>
-                        <span class="explanation-icon">
-                            ✓
-                        </span>
-                        <span>
-                            ${escapeHTML(item)}
-                        </span>
-                    </li>
-                `
-            ).join("");
-
-        return;
+        explanationItems =
+            [explanation];
     }
 
 
-    // --------------------------------------------------------
-    // Fallback explanation
-    // --------------------------------------------------------
+    /*
+     * Backend explanation is the source of truth.
+     */
 
-    const percentage =
-        (
-            probability * 100
-        ).toFixed(2);
+    if (explanationItems.length > 0) {
 
+        decisionExplanation.innerHTML =
+            explanationItems
+                .map(
+                    item =>
+                        `<li>${escapeHtml(
+                            item
+                        )}</li>`
+                )
+                .join("");
 
-    const amount =
-        Number(
-            transaction.amount || 0
-        );
+    } else {
 
+        /*
+         * -----------------------------------------
+         * FALLBACK EXPLANATION
+         * -----------------------------------------
+         */
 
-    const retryCount =
-        Number(
-            transaction.retry_count || 0
-        );
+        const fallback = [];
 
+        const failureCode =
+            prediction.failure_code;
 
-    const failureCode =
-        transaction.failure_code ||
-        "Unknown";
+        const retryCount =
+            Number(
+                prediction.retry_count ?? 0
+            );
 
+        const amount =
+            Number(
+                prediction.amount ?? 0
+            );
 
-    const explanation =
-        [];
+        const probability =
+            normalizeProbability(
+                prediction.recovery_probability ??
+                0
+            );
 
-
-    // --------------------------------------------------------
-    // ML PROBABILITY
-    // --------------------------------------------------------
-
-    explanation.push(
-        `ML model estimated a ${percentage}% ` +
-        `recovery probability.`
-    );
-
-
-    // --------------------------------------------------------
-    // DECISION-SPECIFIC POLICY EXPLANATION
-    // --------------------------------------------------------
-
-    if (
-        decisionValue ===
-        "AUTOMATE"
-    ) {
-
-        explanation.push(
-            `Probability is at or above the ` +
-            `70% automation threshold.`
-        );
-
-        explanation.push(
-            `The transaction passed the current ` +
-            `policy safety checks.`
-        );
-
-        explanation.push(
-            `Automatic recovery is permitted.`
-        );
-
-    } else if (
-        decisionValue ===
-        "REVIEW"
-    ) {
-
-        explanation.push(
-            `Recovery probability is within the ` +
-            `review range of 40%–69.99%.`
-        );
-
-        explanation.push(
-            `The transaction should receive ` +
-            `additional human review before recovery.`
-        );
-
-    } else if (
-        decisionValue ===
-        "DO_NOT_RECOVER"
-    ) {
 
         if (
             failureCode ===
             "CARD_BLOCKED"
         ) {
 
-            explanation.push(
-                `The failure code is CARD_BLOCKED, ` +
-                `so automated recovery is considered unsafe.`
+            fallback.push(
+                "Card is blocked, so recovery is stopped by policy."
             );
 
         } else if (
             retryCount >= 3
         ) {
 
-            explanation.push(
-                `The transaction has reached the ` +
-                `maximum retry limit of 3.`
+            fallback.push(
+                "Maximum retry limit reached."
             );
 
         } else if (
-            probability < 0.40
+            failureCode ===
+            "BANK_TIMEOUT"
         ) {
 
-            explanation.push(
-                `Recovery probability is below the ` +
-                `40% review threshold.`
+            fallback.push(
+                "Bank timeout requires manual review because retrying may create duplicate-charge risk."
+            );
+
+        } else if (
+            amount >= 7500
+        ) {
+
+            fallback.push(
+                "High-value transaction requires additional review."
+            );
+
+        } else if (
+            probability >= 0.70
+        ) {
+
+            fallback.push(
+                "High recovery probability supports automated recovery."
+            );
+
+        } else if (
+            probability >= 0.40
+        ) {
+
+            fallback.push(
+                "Medium recovery probability requires review."
             );
 
         } else {
 
-            explanation.push(
-                `Current policy does not permit ` +
-                `automated recovery.`
+            fallback.push(
+                "Low recovery probability does not justify recovery."
             );
         }
+
+
+        decisionExplanation.innerHTML =
+            fallback
+                .map(
+                    item =>
+                        `<li>${escapeHtml(
+                            item
+                        )}</li>`
+                )
+                .join("");
     }
 
 
-    // --------------------------------------------------------
-    // HIGH-VALUE TRANSACTION
-    // --------------------------------------------------------
+    /* ---------------------------------------------
+       POLICY REASON
+    --------------------------------------------- */
 
-    if (
-        amount >= 7500
-    ) {
+    if (decisionReason) {
 
-        explanation.push(
-            `Transaction value is ${formatCurrency(
-                amount
-            )}, so high-value transactions require review.`
-        );
-    }
-
-
-    // --------------------------------------------------------
-    // RETRY INFORMATION
-    // --------------------------------------------------------
-
-    explanation.push(
-        `Current retry count: ${retryCount}.`
-    );
-
-
-    // --------------------------------------------------------
-    // RENDER
-    // --------------------------------------------------------
-
-    decisionExplanation.innerHTML =
-        explanation.map(
-            item => `
-                <li>
-                    <span class="explanation-icon">
-                        ✓
-                    </span>
-                    <span>
-                        ${escapeHTML(item)}
-                    </span>
-                </li>
-            `
-        ).join("");
-}
-
-
-// ============================================================
-// DECISION CSS CLASS
-// ============================================================
-
-function getDecisionClass(
-    decisionValue
-) {
-
-    switch (decisionValue) {
-
-        case "AUTOMATE":
-
-            return "decision-automate";
-
-        case "REVIEW":
-
-            return "decision-review";
-
-        case "DO_NOT_RECOVER":
-
-            return "decision-do-not-recover";
-
-        default:
-
-            return "";
+        decisionReason.textContent =
+            reason || "";
     }
 }
 
 
-// ============================================================
-// FORMAT DECISION FOR DISPLAY
-// ============================================================
+/* =========================================================
+   RECOVERY SIMULATION
+   ========================================================= */
 
-function formatDecision(
-    decisionValue
+function updateRecoverySimulation(
+    recovery
 ) {
-
-    if (
-        decisionValue ===
-        "DO_NOT_RECOVER"
-    ) {
-
-        return "DO NOT RECOVER";
+    if (!recoverySimulation) {
+        return;
     }
 
 
-    return decisionValue;
-}
+    /*
+     * No recovery information.
+     */
+
+    if (!recovery) {
+
+        recoverySimulation.innerHTML = `
+            <div class="simulation-status">
+                No simulation result available.
+            </div>
+        `;
+
+        if (recoveryResult) {
+            recoveryResult.textContent =
+                "—";
+        }
+
+        if (recoveredAmount) {
+            recoveredAmount.textContent =
+                "₹0.00";
+        }
+
+        return;
+    }
 
 
-// ============================================================
-// CURRENCY FORMATTER
-// ============================================================
+    /*
+     * ---------------------------------------------
+     * EXTRACT SIMULATION FIELDS
+     * ---------------------------------------------
+     */
 
-function formatCurrency(
-    value
-) {
+    const attempted =
+        recovery.recovery_attempted === true;
+
+
+    const result =
+        recovery.recovery_result ||
+        "unknown";
+
 
     const amount =
         Number(
-            value ?? 0
+            recovery.recovered_amount ??
+            0
         );
 
 
-    return amount.toLocaleString(
-        "en-IN",
-        {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 2
+    const stoppedReason =
+        recovery.stopped_reason ||
+        "";
+
+
+    /* ---------------------------------------------
+       RESULT VALUE
+    --------------------------------------------- */
+
+    if (recoveryResult) {
+
+        recoveryResult.textContent =
+            formatRecoveryResult(
+                result
+            );
+    }
+
+
+    /* ---------------------------------------------
+       RECOVERED AMOUNT
+    --------------------------------------------- */
+
+    if (recoveredAmount) {
+
+        recoveredAmount.textContent =
+            formatCurrency(
+                amount
+            );
+    }
+
+
+    /* ---------------------------------------------
+       STATUS TEXT
+    --------------------------------------------- */
+
+    let statusText = "";
+
+
+    if (
+        result === "success"
+    ) {
+
+        statusText =
+            "Recovery attempt simulated successfully.";
+
+    } else if (
+        result === "failure"
+    ) {
+
+        statusText =
+            "Recovery attempt was simulated but did not recover the payment.";
+
+    } else if (
+        result === "pending"
+    ) {
+
+        statusText =
+            stoppedReason ||
+            "Manual review is pending.";
+
+    } else if (
+        result === "not_attempted"
+    ) {
+
+        statusText =
+            stoppedReason ||
+            "Recovery was not attempted.";
+
+    } else {
+
+        statusText =
+            "Simulation completed.";
+    }
+
+
+    /* ---------------------------------------------
+       SIMULATION DETAILS
+    --------------------------------------------- */
+
+    recoverySimulation.innerHTML = `
+        <div class="simulation-status">
+            ${escapeHtml(statusText)}
+        </div>
+
+        <div class="simulation-details">
+
+            <div>
+                <strong>Attempted:</strong>
+                ${attempted ? "Yes" : "No"}
+            </div>
+
+            <div>
+                <strong>Result:</strong>
+                ${escapeHtml(
+                    formatRecoveryResult(
+                        result
+                    )
+                )}
+            </div>
+
+            <div>
+                <strong>Recovered Amount:</strong>
+                ${formatCurrency(
+                    amount
+                )}
+            </div>
+
+            ${
+                stoppedReason
+                    ? `
+                        <div>
+                            <strong>Reason:</strong>
+                            ${escapeHtml(
+                                stoppedReason
+                            )}
+                        </div>
+                    `
+                    : ""
+            }
+
+        </div>
+    `;
+}
+
+
+/* =========================================================
+   RECOVERY RESULT FORMAT
+   ========================================================= */
+
+function formatRecoveryResult(
+    result
+) {
+    switch (result) {
+
+        case "success":
+            return "SUCCESS";
+
+        case "failure":
+            return "FAILURE";
+
+        case "pending":
+            return "PENDING REVIEW";
+
+        case "not_attempted":
+            return "NOT ATTEMPTED";
+
+        default:
+            return String(
+                result || "UNKNOWN"
+            )
+                .replaceAll(
+                    "_",
+                    " "
+                )
+                .toUpperCase();
+    }
+}
+
+
+/* =========================================================
+   REFRESH DASHBOARD
+   ========================================================= */
+
+async function refreshDashboard() {
+
+    await checkApiHealth();
+
+    await Promise.all([
+        loadDashboardStats(),
+        loadRecentTransactions()
+    ]);
+}
+
+
+/* =========================================================
+   EVENT LISTENERS
+   ========================================================= */
+
+if (transactionForm) {
+
+    transactionForm.addEventListener(
+        "submit",
+        async event => {
+
+            event.preventDefault();
+
+            await predictTransaction();
         }
     );
 }
 
 
-// ============================================================
-// HTML ESCAPE
-// ============================================================
+if (refreshButton) {
 
-function escapeHTML(
-    value
-) {
+    refreshButton.addEventListener(
+        "click",
+        async () => {
 
-    return String(value)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-}
-
-
-// ============================================================
-// FORM ERROR
-// ============================================================
-
-function showFormError(
-    message
-) {
-
-    if (!formError) {
-        return;
-    }
-
-
-    formError.textContent =
-        message ||
-        "An unexpected error occurred.";
-
-
-    formError.classList.remove(
-        "hidden"
+            await refreshDashboard();
+        }
     );
 }
 
 
-function clearFormError() {
+/* =========================================================
+   INITIAL LOAD
+   ========================================================= */
 
-    if (!formError) {
-        return;
-    }
+async function initializeDashboard() {
+
+    await checkApiHealth();
+
+    await Promise.all([
+        loadDashboardStats(),
+        loadRecentTransactions()
+    ]);
+}
 
 
-    formError.textContent = "";
+/*
+ * Because the script is loaded near the end
+ * of the HTML, initialize immediately if the
+ * DOM is already ready. Otherwise wait for it.
+ */
 
-    formError.classList.add(
-        "hidden"
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeDashboard
     );
+
+} else {
+
+    initializeDashboard();
 }

@@ -1,5 +1,6 @@
 /* ============================================================
    Payment Recovery AI
+
    Professional Frontend Styles
    ============================================================ */
 
@@ -9,9 +10,7 @@
     padding: 0;
 }
 
-
 body {
-
     font-family:
         Inter,
         -apple-system,
@@ -28,7 +27,6 @@ body {
         );
 
     color: #10233f;
-
     min-height: 100vh;
 }
 
@@ -38,7 +36,6 @@ body {
    ============================================================ */
 
 .container {
-
     width:
         min(
             1200px,
@@ -59,22 +56,33 @@ body {
    ============================================================ */
 
 .header {
+    width:
+        min(
+            1200px,
+            calc(100% - 40px)
+        );
 
-    display: flex;
+    margin:
+        0 auto;
+
+    padding:
+        28px
+        0
+        10px;
+}
+
+.header-content {
+    display:
+        flex;
 
     justify-content:
         space-between;
 
     align-items:
         center;
-
-    margin-bottom:
-        30px;
 }
 
-
 .header h1 {
-
     font-size:
         34px;
 
@@ -88,9 +96,7 @@ body {
         -0.8px;
 }
 
-
 .subtitle {
-
     margin-top:
         7px;
 
@@ -107,7 +113,6 @@ body {
    ============================================================ */
 
 .api-status {
-
     display:
         flex;
 
@@ -140,9 +145,7 @@ body {
         14px;
 }
 
-
 .status-dot {
-
     width:
         9px;
 
@@ -156,19 +159,19 @@ body {
         inline-block;
 }
 
-
 .api-status.connected .status-dot {
-    background: #16b364;
+    background:
+        #16b364;
 }
-
 
 .api-status.disconnected .status-dot {
-    background: #dc3545;
+    background:
+        #dc3545;
 }
 
-
 .api-status.checking .status-dot {
-    background: #f0a500;
+    background:
+        #f0a500;
 }
 
 
@@ -177,7 +180,6 @@ body {
    ============================================================ */
 
 .section-heading {
-
     display:
         flex;
 
@@ -191,9 +193,7 @@ body {
         18px;
 }
 
-
 .section-heading h2 {
-
     font-size:
         22px;
 
@@ -204,9 +204,7 @@ body {
         #10233f;
 }
 
-
 .section-heading p {
-
     color:
         #718198;
 
@@ -223,7 +221,6 @@ body {
    ============================================================ */
 
 .refresh-button {
-
     border:
         1px solid
         #d5dce7;
@@ -255,9 +252,7 @@ body {
         transform 0.2s ease;
 }
 
-
 .refresh-button:hover {
-
     background:
         #f5f8ff;
 
@@ -265,9 +260,7 @@ body {
         translateY(-1px);
 }
 
-
 .refresh-button:disabled {
-
     opacity:
         0.6;
 
@@ -281,7 +274,6 @@ body {
    ============================================================ */
 
 .dashboard-section {
-
     margin-bottom:
         38px;
 }
@@ -292,7 +284,6 @@ body {
    ============================================================ */
 
 .stats-grid {
-
     display:
         grid;
 
@@ -309,9 +300,7 @@ body {
         16px;
 }
 
-
 .stat-card {
-
     background:
         white;
 
@@ -342,9 +331,7 @@ body {
         box-shadow 0.2s ease;
 }
 
-
 .stat-card:hover {
-
     transform:
         translateY(-2px);
 
@@ -358,9 +345,7 @@ body {
         );
 }
 
-
 .stat-label {
-
     color:
         #65758b;
 
@@ -374,9 +359,7 @@ body {
         700;
 }
 
-
 .stat-value {
-
     font-size:
         32px;
 
@@ -390,9 +373,7 @@ body {
         #10233f;
 }
 
-
 .stat-description {
-
     color:
         #8794a7;
 
@@ -412,31 +393,24 @@ body {
    ============================================================ */
 
 .automate-card {
-
     border-top:
         3px solid
         #16a765;
 }
 
-
 .review-card {
-
     border-top:
         3px solid
         #e69a18;
 }
 
-
 .dont-recover-card {
-
     border-top:
         3px solid
         #d94b4b;
 }
 
-
 .automation-rate-card {
-
     border-top:
         3px solid
         #2b67df;
@@ -448,7 +422,6 @@ body {
    ============================================================ */
 
 .decision-flow-card {
-
     background:
         white;
 
@@ -475,9 +448,7 @@ body {
         #edf0f5;
 }
 
-
 .card-title {
-
     font-size:
         18px;
 
@@ -491,9 +462,7 @@ body {
         #10233f;
 }
 
-
 .decision-flow {
-
     display:
         flex;
 
@@ -504,9 +473,7 @@ body {
         10px;
 }
 
-
 .flow-step {
-
     flex:
         1;
 
@@ -540,9 +507,7 @@ body {
         border-color 0.2s ease;
 }
 
-
 .flow-step:hover {
-
     transform:
         translateY(-2px);
 
@@ -550,9 +515,7 @@ body {
         #cbd8ed;
 }
 
-
 .flow-number {
-
     flex-shrink:
         0;
 
@@ -587,9 +550,7 @@ body {
         800;
 }
 
-
 .flow-content {
-
     display:
         flex;
 
@@ -603,9 +564,7 @@ body {
         0;
 }
 
-
 .flow-content strong {
-
     color:
         #243a56;
 
@@ -616,9 +575,7 @@ body {
         1.3;
 }
 
-
 .flow-content span {
-
     color:
         #7b899c;
 
@@ -629,9 +586,7 @@ body {
         1.4;
 }
 
-
 .flow-arrow {
-
     display:
         flex;
 
@@ -654,9 +609,7 @@ body {
         0;
 }
 
-
 .final-flow-step {
-
     background:
         #eef5ff;
 
@@ -670,7 +623,6 @@ body {
    ============================================================ */
 
 .probability-card {
-
     background:
         white;
 
@@ -698,9 +650,7 @@ body {
         #edf0f5;
 }
 
-
 .probability-header {
-
     display:
         flex;
 
@@ -708,15 +658,13 @@ body {
         space-between;
 
     align-items:
-        end;
+        flex-end;
 
     margin-bottom:
         14px;
 }
 
-
 .probability-value {
-
     font-size:
         32px;
 
@@ -727,9 +675,7 @@ body {
         6px;
 }
 
-
 .probability-info {
-
     color:
         #8794a7;
 
@@ -737,9 +683,7 @@ body {
         12px;
 }
 
-
 .progress-container {
-
     height:
         10px;
 
@@ -756,9 +700,7 @@ body {
         hidden;
 }
 
-
 .progress-bar {
-
     height:
         100%;
 
@@ -781,7 +723,6 @@ body {
    ============================================================ */
 
 .financial-card {
-
     background:
         white;
 
@@ -805,9 +746,7 @@ body {
         #edf0f5;
 }
 
-
 .financial-grid {
-
     display:
         grid;
 
@@ -821,9 +760,7 @@ body {
         15px;
 }
 
-
 .financial-item {
-
     padding:
         17px;
 
@@ -834,9 +771,7 @@ body {
         12px;
 }
 
-
 .financial-label {
-
     display:
         block;
 
@@ -853,9 +788,7 @@ body {
         8px;
 }
 
-
 .financial-item strong {
-
     font-size:
         20px;
 
@@ -863,9 +796,7 @@ body {
         #10233f;
 }
 
-
 .financial-item.highlight {
-
     background:
         #eef5ff;
 
@@ -874,9 +805,7 @@ body {
         #d7e5ff;
 }
 
-
 .financial-note {
-
     margin-top:
         18px;
 
@@ -896,14 +825,11 @@ body {
    ============================================================ */
 
 .recent-section {
-
     margin-bottom:
         38px;
 }
 
-
 .table-wrapper {
-
     background:
         white;
 
@@ -928,28 +854,63 @@ body {
 }
 
 
-table {
+/*
+ * IMPORTANT:
+ *
+ * The JavaScript creates .transaction-row elements
+ * directly inside #recentTransactions instead of
+ * creating <tr>/<td> elements.
+ *
+ * Therefore the table header and transaction rows
+ * are explicitly converted into matching 6-column
+ * grid layouts.
+ */
 
+table {
     width:
         100%;
+
+    min-width:
+        720px;
 
     border-collapse:
         collapse;
 
-    min-width:
-        720px;
+    display:
+        block;
 }
 
+thead,
+tbody {
+    display:
+        block;
+
+    width:
+        100%;
+}
 
 thead {
-
     background:
         #f7f9fc;
 }
 
+thead tr {
+    display:
+        grid;
+
+    grid-template-columns:
+        1.35fr
+        0.90fr
+        0.90fr
+        1.00fr
+        1.20fr
+        1.00fr;
+
+    width:
+        100%;
+}
 
 th {
-
     text-align:
         left;
 
@@ -968,14 +929,42 @@ th {
 
     font-weight:
         700;
+
+    min-width:
+        0;
+}
+
+tbody {
+    background:
+        white;
 }
 
 
-td {
+/*
+ * Each transaction now uses exactly the same
+ * six-column structure as the header.
+ */
 
-    padding:
-        16px
-        18px;
+.transaction-row {
+    display:
+        grid;
+
+    grid-template-columns:
+        1.35fr
+        0.90fr
+        0.90fr
+        1.00fr
+        1.20fr
+        1.00fr;
+
+    width:
+        100%;
+
+    min-height:
+        58px;
+
+    align-items:
+        center;
 
     border-top:
         1px solid
@@ -988,11 +977,40 @@ td {
         #34465d;
 }
 
+.transaction-row > div {
+    min-width:
+        0;
 
-tr:hover td {
+    padding:
+        16px
+        18px;
 
+    overflow:
+        hidden;
+
+    text-overflow:
+        ellipsis;
+
+    white-space:
+        nowrap;
+}
+
+.transaction-row:hover {
     background:
         #fafbfd;
+}
+
+
+/*
+ * Keep the transaction ID visually consistent.
+ */
+
+.transaction-row .transaction-id {
+    color:
+        #245bd6;
+
+    font-weight:
+        500;
 }
 
 
@@ -1001,7 +1019,6 @@ tr:hover td {
    ============================================================ */
 
 .decision-badge {
-
     display:
         inline-flex;
 
@@ -1023,67 +1040,52 @@ tr:hover td {
 
     letter-spacing:
         0.3px;
+
+    white-space:
+        nowrap;
 }
 
-
 .decision-automate {
-
     color:
         #087d48;
 }
 
-
 .decision-value.decision-automate {
-
     color:
         #13a55d;
 }
 
-
 .decision-badge.decision-automate {
-
     background:
         #e8f8f0;
 }
 
-
 .decision-review {
-
     color:
         #ad6900;
 }
 
-
 .decision-value.decision-review {
-
     color:
         #d58900;
 }
 
-
 .decision-badge.decision-review {
-
     background:
         #fff4dd;
 }
 
-
 .decision-do-not-recover {
-
     color:
         #bd3333;
 }
 
-
 .decision-value.decision-do-not-recover {
-
     color:
         #d53d3d;
 }
 
-
 .decision-badge.decision-do-not-recover {
-
     background:
         #ffebeb;
 }
@@ -1096,7 +1098,6 @@ tr:hover td {
 .loading-cell,
 .empty-cell,
 .error-cell {
-
     text-align:
         center;
 
@@ -1107,9 +1108,7 @@ tr:hover td {
         #8290a2;
 }
 
-
 .error-cell {
-
     color:
         #c43d3d;
 }
@@ -1120,14 +1119,11 @@ tr:hover td {
    ============================================================ */
 
 .analysis-section {
-
     margin-bottom:
         38px;
 }
 
-
 .analysis-layout {
-
     display:
         grid;
 
@@ -1139,10 +1135,8 @@ tr:hover td {
         24px;
 }
 
-
 .analysis-card,
 .result-card {
-
     background:
         white;
 
@@ -1166,10 +1160,8 @@ tr:hover td {
         #edf0f5;
 }
 
-
 .analysis-card h2,
 .result-card h2 {
-
     font-size:
         21px;
 
@@ -1183,7 +1175,6 @@ tr:hover td {
    ============================================================ */
 
 .form-grid {
-
     display:
         grid;
 
@@ -1195,9 +1186,7 @@ tr:hover td {
         18px;
 }
 
-
 .form-group {
-
     display:
         flex;
 
@@ -1205,9 +1194,7 @@ tr:hover td {
         column;
 }
 
-
 .form-group label {
-
     font-size:
         12px;
 
@@ -1221,10 +1208,8 @@ tr:hover td {
         7px;
 }
 
-
 .form-group input,
 .form-group select {
-
     width:
         100%;
 
@@ -1259,10 +1244,8 @@ tr:hover td {
         box-shadow 0.2s ease;
 }
 
-
 .form-group input:focus,
 .form-group select:focus {
-
     border-color:
         #2b67df;
 
@@ -1276,47 +1259,7 @@ tr:hover td {
         );
 }
 
-
-.checkbox-label {
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        9px;
-
-    margin-top:
-        19px;
-
-    color:
-        #42556c;
-
-    font-size:
-        13px;
-
-    cursor:
-        pointer;
-}
-
-
-.checkbox-label input {
-
-    width:
-        17px;
-
-    height:
-        17px;
-
-    accent-color:
-        #2b67df;
-}
-
-
 .analyze-button {
-
     width:
         100%;
 
@@ -1352,9 +1295,7 @@ tr:hover td {
         transform 0.2s ease;
 }
 
-
 .analyze-button:hover {
-
     background:
         #2158c5;
 
@@ -1362,9 +1303,7 @@ tr:hover td {
         translateY(-1px);
 }
 
-
 .analyze-button:disabled {
-
     opacity:
         0.65;
 
@@ -1381,7 +1320,6 @@ tr:hover td {
    ============================================================ */
 
 .form-error {
-
     margin-top:
         13px;
 
@@ -1406,9 +1344,7 @@ tr:hover td {
         12px;
 }
 
-
 .hidden {
-
     display:
         none !important;
 }
@@ -1419,7 +1355,6 @@ tr:hover td {
    ============================================================ */
 
 .result-card {
-
     display:
         flex;
 
@@ -1427,9 +1362,7 @@ tr:hover td {
         column;
 }
 
-
 .decision-box {
-
     padding:
         22px;
 
@@ -1447,9 +1380,7 @@ tr:hover td {
         #edf0f5;
 }
 
-
 .result-label {
-
     color:
         #68788d;
 
@@ -1463,9 +1394,7 @@ tr:hover td {
         700;
 }
 
-
 .decision-value {
-
     font-size:
         31px;
 
@@ -1485,14 +1414,11 @@ tr:hover td {
    ============================================================ */
 
 .probability-result {
-
     margin-bottom:
         24px;
 }
 
-
 .result-probability {
-
     font-size:
         30px;
 
@@ -1511,7 +1437,6 @@ tr:hover td {
    ============================================================ */
 
 .policy-result {
-
     padding:
         17px
         19px;
@@ -1534,9 +1459,7 @@ tr:hover td {
         border-color 0.2s ease;
 }
 
-
 .policy-value {
-
     margin-top:
         8px;
 
@@ -1559,21 +1482,16 @@ tr:hover td {
    ============================================================ */
 
 .policy-value.policy-automate {
-
     color:
         #087d48;
 }
 
-
 .policy-value.policy-review {
-
     color:
         #ad6900;
 }
 
-
 .policy-value.policy-block {
-
     color:
         #bd3333;
 }
@@ -1584,7 +1502,6 @@ tr:hover td {
    ============================================================ */
 
 .explainability-box {
-
     padding:
         19px;
 
@@ -1602,9 +1519,7 @@ tr:hover td {
         #edf0f5;
 }
 
-
 .explainability-box ul {
-
     list-style:
         none;
 
@@ -1621,9 +1536,7 @@ tr:hover td {
         9px;
 }
 
-
 .explainability-box li {
-
     display:
         flex;
 
@@ -1643,9 +1556,7 @@ tr:hover td {
         1.5;
 }
 
-
 .explanation-icon {
-
     display:
         inline-flex;
 
@@ -1686,7 +1597,6 @@ tr:hover td {
    ============================================================ */
 
 .reason-box {
-
     padding:
         19px;
 
@@ -1701,9 +1611,7 @@ tr:hover td {
         #edf0f5;
 }
 
-
 .reason-box p {
-
     color:
         #56687d;
 
@@ -1723,7 +1631,6 @@ tr:hover td {
    ============================================================ */
 
 .transaction-result {
-
     display:
         flex;
 
@@ -1733,7 +1640,7 @@ tr:hover td {
     align-items:
         center;
 
-    margin-top:
+    margin-bottom:
         18px;
 
     padding:
@@ -1757,11 +1664,126 @@ tr:hover td {
         #dce9ff;
 }
 
-
 .transaction-result strong {
-
     color:
         #245bd6;
+}
+
+
+/* ============================================================
+   RECOVERY SIMULATION
+   ============================================================ */
+
+.simulation-panel {
+    margin-top:
+        20px;
+
+    padding:
+        19px;
+
+    background:
+        #f7f9fc;
+
+    border:
+        1px solid
+        #edf0f5;
+
+    border-radius:
+        13px;
+}
+
+.simulation-panel h3 {
+    font-size:
+        15px;
+
+    font-weight:
+        700;
+
+    color:
+        #243a56;
+
+    margin-bottom:
+        12px;
+}
+
+.recovery-simulation {
+    padding:
+        12px
+        14px;
+
+    background:
+        white;
+
+    border:
+        1px solid
+        #e3e8ef;
+
+    border-radius:
+        9px;
+
+    color:
+        #56687d;
+
+    font-size:
+        12px;
+
+    line-height:
+        1.5;
+}
+
+.simulation-summary {
+    display:
+        grid;
+
+    grid-template-columns:
+        1fr
+        1fr;
+
+    gap:
+        10px;
+
+    margin-top:
+        12px;
+}
+
+.simulation-summary > div {
+    padding:
+        12px;
+
+    background:
+        white;
+
+    border:
+        1px solid
+        #e3e8ef;
+
+    border-radius:
+        9px;
+}
+
+.simulation-summary span {
+    display:
+        block;
+
+    color:
+        #7b899c;
+
+    font-size:
+        11px;
+
+    margin-bottom:
+        5px;
+}
+
+.simulation-summary strong {
+    display:
+        block;
+
+    color:
+        #10233f;
+
+    font-size:
+        14px;
 }
 
 
@@ -1770,7 +1792,6 @@ tr:hover td {
    ============================================================ */
 
 footer {
-
     text-align:
         center;
 
@@ -1780,13 +1801,18 @@ footer {
     font-size:
         12px;
 
-    padding-top:
-        10px;
+    padding:
+        10px
+        20px
+        28px;
 }
 
+footer p + p {
+    margin-top:
+        5px;
+}
 
 footer span {
-
     padding:
         0
         5px;
@@ -1800,7 +1826,6 @@ footer span {
 @media (max-width: 1100px) {
 
     .stats-grid {
-
         grid-template-columns:
             repeat(
                 3,
@@ -1808,16 +1833,12 @@ footer span {
             );
     }
 
-
     .decision-flow {
-
         flex-wrap:
             wrap;
     }
 
-
     .flow-step {
-
         flex:
             1 1
             calc(
@@ -1825,9 +1846,7 @@ footer span {
             );
     }
 
-
     .flow-arrow {
-
         display:
             none;
     }
@@ -1841,17 +1860,14 @@ footer span {
 @media (max-width: 950px) {
 
     .stats-grid {
-
         grid-template-columns:
             repeat(
                 2,
                 1fr
             );
     }
-
 
     .financial-grid {
-
         grid-template-columns:
             repeat(
                 2,
@@ -1859,16 +1875,12 @@ footer span {
             );
     }
 
-
     .analysis-layout {
-
         grid-template-columns:
             1fr;
     }
 
-
     .decision-flow {
-
         display:
             grid;
 
@@ -1880,9 +1892,7 @@ footer span {
             12px;
     }
 
-
     .flow-step {
-
         flex:
             none;
     }
@@ -1896,7 +1906,6 @@ footer span {
 @media (max-width: 650px) {
 
     .container {
-
         width:
             calc(
                 100% - 24px
@@ -1906,9 +1915,17 @@ footer span {
             22px;
     }
 
-
     .header {
+        width:
+            calc(
+                100% - 24px
+            );
 
+        padding-top:
+            22px;
+    }
+
+    .header-content {
         flex-direction:
             column;
 
@@ -1919,52 +1936,38 @@ footer span {
             15px;
     }
 
-
     .header h1 {
-
         font-size:
             29px;
     }
 
-
     .api-status {
-
         align-self:
             flex-start;
     }
 
-
     .stats-grid {
-
         grid-template-columns:
             1fr;
     }
-
 
     .financial-grid {
-
         grid-template-columns:
             1fr;
     }
-
 
     .form-grid {
-
         grid-template-columns:
             1fr;
     }
-
 
     .analysis-card,
     .result-card {
-
         padding:
             21px;
     }
 
-
     .section-heading {
-
         align-items:
             flex-start;
 
@@ -1972,23 +1975,22 @@ footer span {
             12px;
     }
 
+    .section-heading .refresh-button {
+        flex-shrink:
+            0;
+    }
 
     .decision-flow {
-
         grid-template-columns:
             1fr;
     }
 
-
     .flow-step {
-
         width:
             100%;
     }
 
-
     .probability-header {
-
         align-items:
             flex-start;
 
@@ -1999,10 +2001,39 @@ footer span {
             8px;
     }
 
-
     .financial-item strong {
-
         font-size:
             18px;
+    }
+
+    .simulation-summary {
+        grid-template-columns:
+            1fr;
+    }
+
+    .transaction-result {
+        gap:
+            10px;
+    }
+
+    /*
+     * Keep the six-column transaction layout on mobile.
+     * The table-wrapper provides horizontal scrolling.
+     */
+
+    table {
+        min-width:
+            720px;
+    }
+
+    thead tr,
+    .transaction-row {
+        grid-template-columns:
+            1.35fr
+            0.90fr
+            0.90fr
+            1.00fr
+            1.20fr
+            1.00fr;
     }
 }

@@ -1,369 +1,660 @@
-# api/app.py
+import os
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from policy.decision_engine import evaluate_transaction
-
+from recovery_simulator import simulate_recovery
 from data.transaction_store import (
     save_transaction,
     get_all_transactions,
     get_recent_transactions,
     get_transaction_by_id,
+    get_next_transaction_id,
 )
 
 
-# =========================================================
-# Flask Application
-# =========================================================
+# ============================================================
+# APP INITIALIZATION
+# ============================================================
 
 app = Flask(__name__)
-
-# Allow frontend to communicate with backend
 CORS(app)
 
 
-# =========================================================
-# Root Route
-# =========================================================
+# ============================================================
+# CONSTANTS
+# ============================================================
+
+REQUIRED_FIELDS = [
+    "payment_method",
+    "bank",
+    "failure_code",
+    "failure_stage",
+    "amount",
+    "retry_count",
+    "is_recurring",
+]
+
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
+def validate_transaction(data):
+    """
+    Validate that all required transaction fields are present.
+    """
+
+    if not isinstance(data, dict):
+        return ["Request body must be a JSON object"]
+
+    missing_fields = [
+        field for field in REQUIRED_FIELDS
+        if field not in data
+    ]
+
+    return missing_fields
+
+
+def build_transaction(data, transaction_id):
+    """
+    Build a normalized transaction dictionary.
+    """
+
+    return {
+        "transaction_id": transaction_id,
+        "merchant_id": data.get("merchant_id", ""),
+        "customer_id": data.get("customer_id", ""),
+        "payment_method": data["payment_method"],
+        "bank": data["bank"],
+        "failure_code": data["failure_code"],
+        "failure_stage": data["failure_stage"],
+        "amount": float(data["amount"]),
+        "timestamp": data.get("timestamp", ""),
+        "retry_count": int(data["retry_count"]),
+        "is_recurring": bool(data["is_recurring"]),
+    }
+
+
+def build_prediction_response(transaction, prediction, simulation):
+    """
+    Combine transaction, ML prediction, policy decision,
+    and recovery simulation into a single API response.
+    """
+
+    return {
+        "transaction_id": transaction["transaction_id"],
+
+        # ML
+        "recovery_probability": prediction["recovery_probability"],
+
+        # Policy
+        "decision": prediction["decision"],
+        "risk_level": prediction["risk_level"],
+        "policy_rule": prediction["policy_rule"],
+        "reason": prediction["reason"],
+        "explanation": prediction.get("explanation", []),
+
+        # Recovery simulation
+        "recovery_attempted": simulation["recovery_attempted"],
+        "recovery_result": simulation["recovery_result"],
+        "recovered_amount": simulation["recovered_amount"],
+        "stopped_reason": simulation["stopped_reason"],
+        "simulation_score": simulation["simulation_score"],
+    }
+
+
+# ============================================================
+# ROOT
+# ============================================================
 
 @app.route("/", methods=["GET"])
 def home():
-
     return jsonify({
+        "success": True,
         "service": "Payment Recovery AI",
-        "status": "running",
-        "version": "1.0",
-        "message": "AI-powered payment recovery decision system"
+        "message": "Payment Recovery AI API is running",
+        "endpoints": [
+            "/health",
+            "/predict",
+            "/batch/simulate",
+            "/transactions",
+            "/transactions/recent",
+            "/transactions/<transaction_id>",
+            "/transactions/stats",
+        ],
     })
 
 
-# =========================================================
-# Health Check
-# =========================================================
+# ============================================================
+# HEALTH CHECK
+# ============================================================
 
 @app.route("/health", methods=["GET"])
 def health():
-
     return jsonify({
+        "success": True,
+        "status": "healthy",
         "service": "Payment Recovery AI",
-        "status": "healthy"
     })
 
 
-# =========================================================
-# Predict Transaction
-# =========================================================
+# ============================================================
+# SINGLE TRANSACTION PREDICTION
+# ============================================================
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    """
+    Process one live transaction.
+
+    Workflow:
+
+        Transaction
+             ↓
+        ML probability
+             ↓
+        Policy engine
+             ↓
+        AUTOMATE / REVIEW / DO_NOT_RECOVER
+             ↓
+        Recovery simulation
+             ↓
+        decision_log.csv
+    """
+
+    data = request.get_json(silent=True)
+
+    if data is None:
+        return jsonify({
+            "success": False,
+            "error": "Request must contain valid JSON"
+        }), 400
+
+    missing_fields = validate_transaction(data)
+
+    if missing_fields:
+        return jsonify({
+            "success": False,
+            "error": "Missing required transaction fields",
+            "missing_fields": missing_fields,
+        }), 400
 
     try:
+        # ----------------------------------------------------
+        # Generate a new live transaction ID
+        # ----------------------------------------------------
 
-        # -------------------------------------------------
-        # Read request data
-        # -------------------------------------------------
+        transaction_id = get_next_transaction_id()
 
-        data = request.get_json()
-
-        if not data:
-
-            return jsonify({
-                "success": False,
-                "error": "Request body is empty."
-            }), 400
-
-
-        # -------------------------------------------------
-        # Required fields
-        # -------------------------------------------------
-
-        required_fields = [
-            "payment_method",
-            "bank",
-            "failure_code",
-            "failure_stage",
-            "amount",
-            "retry_count",
-            "is_recurring",
-        ]
-
-
-        # -------------------------------------------------
-        # Validate required fields
-        # -------------------------------------------------
-
-        missing_fields = [
-            field
-            for field in required_fields
-            if field not in data
-        ]
-
-        if missing_fields:
-
-            return jsonify({
-                "success": False,
-                "error": "Missing required fields.",
-                "missing_fields": missing_fields
-            }), 400
-
-
-        # -------------------------------------------------
-        # Build transaction object
-        # -------------------------------------------------
-
-        transaction = {
-
-            "payment_method":
-                data["payment_method"],
-
-            "bank":
-                data["bank"],
-
-            "failure_code":
-                data["failure_code"],
-
-            "failure_stage":
-                data["failure_stage"],
-
-            "amount":
-                float(data["amount"]),
-
-            "retry_count":
-                int(data["retry_count"]),
-
-            "is_recurring":
-                data["is_recurring"],
-        }
-
-
-        # -------------------------------------------------
-        # Evaluate transaction
-        #
-        # ML model
-        #       ↓
-        # Recovery probability
-        #       ↓
-        # Policy engine
-        #       ↓
-        # Final decision
-        #       ↓
-        # Explainability
-        # -------------------------------------------------
-
-        result = evaluate_transaction(
-            transaction
+        transaction = build_transaction(
+            data,
+            transaction_id
         )
 
+        # ----------------------------------------------------
+        # ML + Policy Evaluation
+        # ----------------------------------------------------
 
-        # -------------------------------------------------
-        # Add AI results to transaction
-        # -------------------------------------------------
+        prediction = evaluate_transaction(transaction)
 
-        transaction["recovery_probability"] = result.get(
-            "recovery_probability"
+        # ----------------------------------------------------
+        # Recovery Simulation
+        # ----------------------------------------------------
+
+        simulation = simulate_recovery(
+            transaction_id=transaction["transaction_id"],
+            amount=transaction["amount"],
+            recovery_probability=prediction["recovery_probability"],
+            decision=prediction["decision"],
+            reason=prediction["reason"],
         )
 
-        transaction["decision"] = result.get(
-            "decision"
+        # ----------------------------------------------------
+        # Add prediction information to transaction
+        # ----------------------------------------------------
+
+        transaction["recovery_probability"] = (
+            prediction["recovery_probability"]
         )
 
-        transaction["reason"] = result.get(
-            "reason"
-        )
-
-        transaction["risk_level"] = result.get(
-            "risk_level"
-        )
-
-        transaction["policy_rule"] = result.get(
-            "policy_rule"
-        )
-
-
-        # -------------------------------------------------
-        # Store explanation
-        #
-        # CSV stores the explanation as one text field.
-        # API response returns it as a list.
-        # -------------------------------------------------
-
-        explanation = result.get(
+        transaction["decision"] = prediction["decision"]
+        transaction["risk_level"] = prediction["risk_level"]
+        transaction["policy_rule"] = prediction["policy_rule"]
+        transaction["reason"] = prediction["reason"]
+        transaction["explanation"] = prediction.get(
             "explanation",
             []
         )
 
-        transaction["explanation"] = " | ".join(
-            explanation
+        # ----------------------------------------------------
+        # Add recovery simulation information
+        # ----------------------------------------------------
+
+        transaction["recovery_attempted"] = (
+            simulation["recovery_attempted"]
         )
 
-
-        # -------------------------------------------------
-        # Save transaction
-        #
-        # IMPORTANT:
-        # This goes to decision_log.csv,
-        # NOT transactions.csv.
-        # -------------------------------------------------
-
-        saved_transaction = save_transaction(
-            transaction
+        transaction["recovery_result"] = (
+            simulation["recovery_result"]
         )
 
+        transaction["recovered_amount"] = (
+            simulation["recovered_amount"]
+        )
 
-        # =================================================
-        # API Response
-        # =================================================
+        transaction["stopped_reason"] = (
+            simulation["stopped_reason"]
+        )
+
+        # ----------------------------------------------------
+        # Save LIVE decision
+        # ----------------------------------------------------
+
+        save_transaction(transaction)
+
+        # ----------------------------------------------------
+        # Response
+        # ----------------------------------------------------
 
         return jsonify({
-
             "success": True,
-
-            "input": saved_transaction,
-
-            "prediction": {
-
-                # Final AI decision
-                "decision":
-                    result.get("decision"),
-
-                # ML probability
-                "recovery_probability":
-                    result.get(
-                        "recovery_probability"
-                    ),
-
-                # Human-readable policy reason
-                "reason":
-                    result.get("reason"),
-
-                # Risk classification
-                "risk_level":
-                    result.get("risk_level"),
-
-                # Rule that triggered the decision
-                "policy_rule":
-                    result.get("policy_rule"),
-
-                # Detailed explanation
-                "explanation":
-                    result.get(
-                        "explanation",
-                        []
-                    )
-            }
+            "simulation": True,
+            "message": (
+                "Transaction evaluated successfully. "
+                "Recovery workflow was simulated; "
+                "no real payment was executed."
+            ),
+            "prediction": build_prediction_response(
+                transaction,
+                prediction,
+                simulation,
+            ),
         })
 
-
-    # -----------------------------------------------------
-    # Validation errors
-    # -----------------------------------------------------
-
-    except ValueError as error:
-
+    except Exception as exc:
         return jsonify({
             "success": False,
-            "error": f"Invalid input: {str(error)}"
-        }), 400
-
-
-    # -----------------------------------------------------
-    # General errors
-    # -----------------------------------------------------
-
-    except Exception as error:
-
-        print(
-            f"Prediction error: {error}"
-        )
-
-        return jsonify({
-            "success": False,
-            "error": str(error)
+            "error": str(exc),
         }), 500
 
 
-# =========================================================
-# Get All Transactions
-# =========================================================
+# ============================================================
+# BATCH RECOVERY SIMULATION
+# ============================================================
+
+@app.route("/batch/simulate", methods=["POST"])
+def batch_simulate():
+    """
+    Simulate recovery decisions for multiple transactions.
+
+    IMPORTANT:
+    - This endpoint does NOT execute real payments.
+    - This endpoint does NOT modify transactions.csv.
+    - Batch results are returned in memory.
+    - Batch results are NOT written to decision_log.csv.
+
+    Workflow:
+
+        Multiple Transactions
+                 ↓
+             ML Model
+                 ↓
+            Policy Engine
+                 ↓
+       ┌─────────┼──────────────┐
+       ↓         ↓              ↓
+    AUTOMATE   REVIEW    DO_NOT_RECOVER
+       ↓         ↓              ↓
+    Simulate   Pending     Not Attempted
+       ↓
+    SUCCESS / FAILURE
+       ↓
+    Batch Metrics
+    """
+
+    data = request.get_json(silent=True)
+
+    if data is None:
+        return jsonify({
+            "success": False,
+            "error": "Request must contain valid JSON"
+        }), 400
+
+    transactions = data.get("transactions")
+
+    if not isinstance(transactions, list):
+        return jsonify({
+            "success": False,
+            "error": "'transactions' must be a list"
+        }), 400
+
+    if len(transactions) == 0:
+        return jsonify({
+            "success": False,
+            "error": "Transaction list cannot be empty"
+        }), 400
+
+    try:
+        # ----------------------------------------------------
+        # IMPORTANT ID FIX
+        # ----------------------------------------------------
+        # Reserve a starting ID ONCE.
+        #
+        # Previously calling get_next_transaction_id()
+        # inside every loop iteration could return the same
+        # ID because batch results are not being saved.
+        #
+        # Example:
+        #   batch_start_id = 5036
+        #
+        #   index 0 -> 5036
+        #   index 1 -> 5037
+        #   index 2 -> 5038
+        #   ...
+        # ----------------------------------------------------
+
+        batch_start_id = int(get_next_transaction_id())
+
+        # ----------------------------------------------------
+        # Metrics
+        # ----------------------------------------------------
+
+        automate_count = 0
+        review_count = 0
+        do_not_recover_count = 0
+
+        automate_value = 0.0
+        review_value = 0.0
+        do_not_recover_value = 0.0
+
+        simulated_recovered_amount = 0.0
+        pending_review_value = 0.0
+        stopped_value = 0.0
+
+        results = []
+
+        # ----------------------------------------------------
+        # Process every transaction
+        # ----------------------------------------------------
+
+        for index, item in enumerate(transactions):
+
+            # -----------------------------------------------
+            # Validate item type
+            # -----------------------------------------------
+
+            if not isinstance(item, dict):
+                return jsonify({
+                    "success": False,
+                    "error": (
+                        f"Transaction at index {index} "
+                        "must be an object"
+                    ),
+                }), 400
+
+            # -----------------------------------------------
+            # Validate required fields
+            # -----------------------------------------------
+
+            missing_fields = validate_transaction(item)
+
+            if missing_fields:
+                return jsonify({
+                    "success": False,
+                    "error": (
+                        f"Transaction at index {index} "
+                        "is missing required fields"
+                    ),
+                    "missing_fields": missing_fields,
+                }), 400
+
+            # -----------------------------------------------
+            # Unique batch transaction ID
+            # -----------------------------------------------
+
+            transaction_id = batch_start_id + index
+
+            transaction = build_transaction(
+                item,
+                transaction_id
+            )
+
+            # -----------------------------------------------
+            # ML + Policy
+            # -----------------------------------------------
+
+            prediction = evaluate_transaction(transaction)
+
+            decision = prediction["decision"]
+            amount = transaction["amount"]
+            probability = prediction["recovery_probability"]
+
+            # -----------------------------------------------
+            # Recovery simulation
+            # -----------------------------------------------
+
+            simulation = simulate_recovery(
+                transaction_id=transaction["transaction_id"],
+                amount=amount,
+                recovery_probability=probability,
+                decision=decision,
+                reason=prediction["reason"],
+            )
+
+            # -----------------------------------------------
+            # Decision counts + values
+            # -----------------------------------------------
+
+            if decision == "AUTOMATE":
+
+                automate_count += 1
+                automate_value += amount
+
+            elif decision == "REVIEW":
+
+                review_count += 1
+                review_value += amount
+                pending_review_value += amount
+
+            elif decision == "DO_NOT_RECOVER":
+
+                do_not_recover_count += 1
+                do_not_recover_value += amount
+                stopped_value += amount
+
+            # -----------------------------------------------
+            # Recovered amount
+            # -----------------------------------------------
+
+            simulated_recovered_amount += float(
+                simulation["recovered_amount"]
+            )
+
+            # -----------------------------------------------
+            # Store result for response
+            # -----------------------------------------------
+
+            results.append({
+                "transaction_id": transaction["transaction_id"],
+
+                "amount": amount,
+
+                # ML
+                "recovery_probability": probability,
+
+                # Policy
+                "decision": decision,
+                "risk_level": prediction["risk_level"],
+                "policy_rule": prediction["policy_rule"],
+                "reason": prediction["reason"],
+                "explanation": prediction.get(
+                    "explanation",
+                    []
+                ),
+
+                # Simulation
+                "recovery_attempted": (
+                    simulation["recovery_attempted"]
+                ),
+                "recovery_result": (
+                    simulation["recovery_result"]
+                ),
+                "recovered_amount": (
+                    simulation["recovered_amount"]
+                ),
+                "stopped_reason": (
+                    simulation["stopped_reason"]
+                ),
+                "simulation_score": (
+                    simulation["simulation_score"]
+                ),
+            })
+
+        # ----------------------------------------------------
+        # Batch metrics
+        # ----------------------------------------------------
+
+        total_transaction_value = (
+            automate_value
+            + review_value
+            + do_not_recover_value
+        )
+
+        if total_transaction_value > 0:
+            recovery_rate = (
+                simulated_recovered_amount
+                / total_transaction_value
+            ) * 100
+        else:
+            recovery_rate = 0.0
+
+        # ----------------------------------------------------
+        # Response
+        # ----------------------------------------------------
+
+        return jsonify({
+            "success": True,
+            "simulation": True,
+
+            "message": (
+                "Batch recovery simulation completed. "
+                "No real payments were executed."
+            ),
+
+            "metrics": {
+                "processed_count": len(results),
+
+                "automate_count": automate_count,
+                "review_count": review_count,
+                "do_not_recover_count": do_not_recover_count,
+
+                "automate_value": round(
+                    automate_value,
+                    2
+                ),
+
+                "review_value": round(
+                    review_value,
+                    2
+                ),
+
+                "do_not_recover_value": round(
+                    do_not_recover_value,
+                    2
+                ),
+
+                "total_transaction_value": round(
+                    total_transaction_value,
+                    2
+                ),
+
+                "simulated_recovered_amount": round(
+                    simulated_recovered_amount,
+                    2
+                ),
+
+                "recovery_rate": round(
+                    recovery_rate,
+                    2
+                ),
+
+                "pending_review_value": round(
+                    pending_review_value,
+                    2
+                ),
+
+                "stopped_value": round(
+                    stopped_value,
+                    2
+                ),
+            },
+
+            "transactions": results,
+        })
+
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc),
+        }), 500
+
+
+# ============================================================
+# ALL TRANSACTIONS
+# ============================================================
 
 @app.route("/transactions", methods=["GET"])
 def transactions():
-
     try:
-
-        transaction_list = get_all_transactions()
+        records = get_all_transactions()
 
         return jsonify({
             "success": True,
-            "transactions": transaction_list,
-            "count": len(transaction_list)
+            "count": len(records),
+            "transactions": records,
         })
 
-
-    except Exception as error:
-
-        print(
-            f"Transaction retrieval error: {error}"
-        )
-
+    except Exception as exc:
         return jsonify({
             "success": False,
-            "error": str(error)
+            "error": str(exc),
         }), 500
 
 
-# =========================================================
-# Get Recent Transactions
-# =========================================================
+# ============================================================
+# RECENT TRANSACTIONS
+# ============================================================
 
 @app.route("/transactions/recent", methods=["GET"])
 def recent_transactions():
 
     try:
-
-        # Default = 10 recent transactions
-        limit = int(
-            request.args.get(
-                "limit",
-                10
-            )
+        limit = request.args.get(
+            "limit",
+            default=10,
+            type=int
         )
 
-        transaction_list = get_recent_transactions(
-            limit
-        )
+        records = get_recent_transactions(limit)
 
         return jsonify({
             "success": True,
-            "transactions": transaction_list,
-            "count": len(transaction_list)
+            "count": len(records),
+            "transactions": records,
         })
 
-
-    except ValueError:
-
+    except Exception as exc:
         return jsonify({
             "success": False,
-            "error": "Invalid limit value."
-        }), 400
-
-
-    except Exception as error:
-
-        print(
-            f"Recent transaction error: {error}"
-        )
-
-        return jsonify({
-            "success": False,
-            "error": str(error)
+            "error": str(exc),
         }), 500
 
 
-# =========================================================
-# Get Transaction By ID
-# =========================================================
+# ============================================================
+# TRANSACTION BY ID
+# ============================================================
 
 @app.route(
     "/transactions/<transaction_id>",
@@ -372,329 +663,271 @@ def recent_transactions():
 def transaction_by_id(transaction_id):
 
     try:
-
         transaction = get_transaction_by_id(
             transaction_id
         )
 
         if transaction is None:
-
             return jsonify({
                 "success": False,
-                "error": "Transaction not found."
+                "error": "Transaction not found",
             }), 404
-
 
         return jsonify({
             "success": True,
-            "transaction": transaction
+            "transaction": transaction,
         })
 
-
-    except Exception as error:
-
-        print(
-            f"Transaction lookup error: {error}"
-        )
-
+    except Exception as exc:
         return jsonify({
             "success": False,
-            "error": str(error)
+            "error": str(exc),
         }), 500
 
 
-# =========================================================
-# Transaction Statistics
-# =========================================================
+# ============================================================
+# TRANSACTION STATISTICS
+# ============================================================
 
-@app.route(
-    "/transactions/stats",
-    methods=["GET"]
-)
+@app.route("/transactions/stats", methods=["GET"])
 def transaction_stats():
 
     try:
+        records = get_all_transactions()
 
-        transactions = get_all_transactions()
+        total = len(records)
 
-
-        # -------------------------------------------------
-        # Empty dataset
-        # -------------------------------------------------
-
-        if not transactions:
-
-            return jsonify({
-
-                "success": True,
-
-                "total_transactions": 0,
-
-                "automate_count": 0,
-
-                "review_count": 0,
-
-                "do_not_recover_count": 0,
-
-                "automation_rate": 0,
-
-                "average_recovery_probability": 0,
-
-                "total_transaction_value": 0,
-
-                "automated_transaction_value": 0,
-
-                "review_transaction_value": 0,
-
-                "do_not_recover_transaction_value": 0,
-
-                "potential_recoverable_value": 0
-            })
-
-
-        # -------------------------------------------------
-        # Counters
-        # -------------------------------------------------
-
-        total_transactions = len(
-            transactions
+        automate_count = sum(
+            1 for r in records
+            if r.get("decision") == "AUTOMATE"
         )
 
-        automate_count = 0
+        review_count = sum(
+            1 for r in records
+            if r.get("decision") == "REVIEW"
+        )
 
-        review_count = 0
+        do_not_recover_count = sum(
+            1 for r in records
+            if r.get("decision") == "DO_NOT_RECOVER"
+        )
 
-        do_not_recover_count = 0
+        # ----------------------------------------------------
+        # Values
+        # ----------------------------------------------------
 
+        total_value = sum(
+            float(r.get("amount", 0) or 0)
+            for r in records
+        )
 
-        # -------------------------------------------------
-        # Financial totals
-        # -------------------------------------------------
+        automated_value = sum(
+            float(r.get("amount", 0) or 0)
+            for r in records
+            if r.get("decision") == "AUTOMATE"
+        )
 
-        total_transaction_value = 0.0
+        review_value = sum(
+            float(r.get("amount", 0) or 0)
+            for r in records
+            if r.get("decision") == "REVIEW"
+        )
 
-        automated_transaction_value = 0.0
+        blocked_value = sum(
+            float(r.get("amount", 0) or 0)
+            for r in records
+            if r.get("decision") == "DO_NOT_RECOVER"
+        )
 
-        review_transaction_value = 0.0
+        # ----------------------------------------------------
+        # ML probability
+        # ----------------------------------------------------
 
-        do_not_recover_transaction_value = 0.0
+        probabilities = []
 
-        potential_recoverable_value = 0.0
-
-
-        # -------------------------------------------------
-        # Recovery probability
-        # -------------------------------------------------
-
-        probability_values = []
-
-
-        # -------------------------------------------------
-        # Process transactions
-        # -------------------------------------------------
-
-        for transaction in transactions:
-
-            decision = transaction.get(
-                "decision"
+        for r in records:
+            probability = r.get(
+                "recovery_probability"
             )
 
-            try:
-
-                amount = float(
-                    transaction.get(
-                        "amount",
-                        0
-                    )
-                )
-
-            except (
-                ValueError,
-                TypeError
+            if probability not in (
+                None,
+                "",
             ):
-
-                amount = 0.0
-
-
-            try:
-
-                probability = float(
-                    transaction.get(
-                        "recovery_probability",
-                        0
+                try:
+                    probabilities.append(
+                        float(probability)
                     )
-                )
+                except (ValueError, TypeError):
+                    pass
 
-            except (
-                ValueError,
-                TypeError
-            ):
+        average_recovery_probability = (
+            sum(probabilities)
+            / len(probabilities)
+            if probabilities
+            else 0.0
+        )
 
-                probability = 0.0
+        # ----------------------------------------------------
+        # Potential recoverable value
+        # ----------------------------------------------------
 
-
-            # ---------------------------------------------
-            # Probability list
-            # ---------------------------------------------
-
-            probability_values.append(
-                probability
+        potential_recoverable_value = sum(
+            float(r.get("amount", 0) or 0)
+            * float(
+                r.get(
+                    "recovery_probability",
+                    0
+                ) or 0
             )
+            for r in records
+        )
 
+        # ----------------------------------------------------
+        # Simulation outcomes
+        # ----------------------------------------------------
 
-            # ---------------------------------------------
-            # Total transaction value
-            # ---------------------------------------------
+        simulated_recovered_amount = sum(
+            float(
+                r.get(
+                    "recovered_amount",
+                    0
+                ) or 0
+            )
+            for r in records
+        )
 
-            total_transaction_value += amount
+        pending_review_value = sum(
+            float(r.get("amount", 0) or 0)
+            for r in records
+            if r.get("recovery_result") == "pending"
+        )
 
+        stopped_value = sum(
+            float(r.get("amount", 0) or 0)
+            for r in records
+            if r.get("recovery_result")
+            == "not_attempted"
+        )
 
-            # ---------------------------------------------
-            # Decision counts
-            # ---------------------------------------------
-
-            if decision == "AUTOMATE":
-
-                automate_count += 1
-
-                automated_transaction_value += amount
-
-                # AI estimated opportunity
-                potential_recoverable_value += (
-                    amount * probability
-                )
-
-
-            elif decision == "REVIEW":
-
-                review_count += 1
-
-                review_transaction_value += amount
-
-                # AI estimated opportunity
-                potential_recoverable_value += (
-                    amount * probability
-                )
-
-
-            elif decision == "DO_NOT_RECOVER":
-
-                do_not_recover_count += 1
-
-                do_not_recover_transaction_value += amount
-
-
-        # -------------------------------------------------
-        # Automation rate
-        # -------------------------------------------------
+        # ----------------------------------------------------
+        # Rates
+        # ----------------------------------------------------
 
         automation_rate = (
-            automate_count
-            / total_transactions
-            * 100
+            automate_count / total * 100
+            if total > 0
+            else 0.0
         )
 
-
-        # -------------------------------------------------
-        # Average recovery probability
-        # -------------------------------------------------
-
-        if probability_values:
-
-            average_recovery_probability = (
-                sum(probability_values)
-                / len(probability_values)
-            )
-
+        if total_value > 0:
+            value_recovery_rate = (
+                simulated_recovered_amount
+                / total_value
+            ) * 100
         else:
+            value_recovery_rate = 0.0
 
-            average_recovery_probability = 0.0
-
-
-        # -------------------------------------------------
-        # Return statistics
-        # -------------------------------------------------
+        # ----------------------------------------------------
+        # Response
+        # ----------------------------------------------------
 
         return jsonify({
-
             "success": True,
 
-            "total_transactions":
-                total_transactions,
+            "stats": {
+                "total": total,
 
-            "automate_count":
-                automate_count,
+                "automate_count": automate_count,
+                "review_count": review_count,
+                "do_not_recover_count":
+                    do_not_recover_count,
 
-            "review_count":
-                review_count,
-
-            "do_not_recover_count":
-                do_not_recover_count,
-
-            "automation_rate":
-                round(
+                "automation_rate": round(
                     automation_rate,
                     2
                 ),
 
-            "average_recovery_probability":
-                round(
-                    average_recovery_probability,
-                    4
-                ),
+                "average_recovery_probability":
+                    round(
+                        average_recovery_probability,
+                        4
+                    ),
 
-            "total_transaction_value":
-                round(
-                    total_transaction_value,
+                "total_value": round(
+                    total_value,
                     2
                 ),
 
-            "automated_transaction_value":
-                round(
-                    automated_transaction_value,
+                "automated_value": round(
+                    automated_value,
                     2
                 ),
 
-            "review_transaction_value":
-                round(
-                    review_transaction_value,
+                "review_value": round(
+                    review_value,
                     2
                 ),
 
-            "do_not_recover_transaction_value":
-                round(
-                    do_not_recover_transaction_value,
+                "blocked_value": round(
+                    blocked_value,
                     2
                 ),
 
-            "potential_recoverable_value":
-                round(
-                    potential_recoverable_value,
-                    2
-                )
+                "potential_recoverable_value":
+                    round(
+                        potential_recoverable_value,
+                        2
+                    ),
+
+                "simulated_recovered_amount":
+                    round(
+                        simulated_recovered_amount,
+                        2
+                    ),
+
+                "value_recovery_rate":
+                    round(
+                        value_recovery_rate,
+                        2
+                    ),
+
+                "pending_review_value":
+                    round(
+                        pending_review_value,
+                        2
+                    ),
+
+                "stopped_value":
+                    round(
+                        stopped_value,
+                        2
+                    ),
+            },
         })
 
-
-    except Exception as error:
-
-        print(
-            f"Statistics error: {error}"
-        )
-
+    except Exception as exc:
         return jsonify({
             "success": False,
-            "error": str(error)
+            "error": str(exc),
         }), 500
 
 
-# =========================================================
-# Run Application
-# =========================================================
+# ============================================================
+# APPLICATION ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
 
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
+    )
+
     app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True
+        host="0.0.0.0",
+        port=port,
+        debug=False,
     )

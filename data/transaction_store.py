@@ -44,7 +44,11 @@ FIELDNAMES = [
     "risk_level",
     "policy_rule",
     "reason",
-    "explanation"
+    "explanation",
+    "recovery_attempted",
+    "recovery_result",
+    "recovered_amount",
+    "stopped_reason"
 ]
 
 
@@ -286,6 +290,50 @@ def _convert_types(transaction):
             pass
 
 
+    # -----------------------------------------------------
+    # Recovered amount
+    # -----------------------------------------------------
+
+    if transaction.get(
+        "recovered_amount"
+    ):
+
+        try:
+
+            transaction[
+                "recovered_amount"
+            ] = float(
+                transaction[
+                    "recovered_amount"
+                ]
+            )
+
+        except (ValueError, TypeError):
+
+            pass
+
+
+    # -----------------------------------------------------
+    # Recovery attempted
+    # -----------------------------------------------------
+
+    if isinstance(
+        transaction.get("recovery_attempted"),
+        str
+    ):
+
+        transaction[
+            "recovery_attempted"
+        ] = (
+            transaction[
+                "recovery_attempted"
+            ]
+            .strip()
+            .lower()
+            in ["true", "1", "yes"]
+        )
+
+
     return transaction
 
 
@@ -293,7 +341,7 @@ def _convert_types(transaction):
 # Generate next transaction ID
 # =========================================================
 
-def _get_next_transaction_id():
+def get_next_transaction_id():
     """
     Generate the next unique transaction ID for live
     transactions.
@@ -364,7 +412,7 @@ def save_transaction(transaction):
 
         transaction[
             "transaction_id"
-        ] = _get_next_transaction_id()
+        ] = get_next_transaction_id()
 
 
     # -----------------------------------------------------
@@ -426,6 +474,26 @@ def save_transaction(transaction):
         ""
     )
 
+    transaction.setdefault(
+        "recovery_attempted",
+        ""
+    )
+
+    transaction.setdefault(
+        "recovery_result",
+        ""
+    )
+
+    transaction.setdefault(
+        "recovered_amount",
+        ""
+    )
+
+    transaction.setdefault(
+        "stopped_reason",
+        ""
+    )
+
 
     # -----------------------------------------------------
     # Convert explanation list to CSV-safe text
@@ -461,6 +529,22 @@ def save_transaction(transaction):
             "True"
             if transaction[
                 "is_recurring"
+            ]
+            else "False"
+        )
+
+
+    if isinstance(
+        transaction.get("recovery_attempted"),
+        bool
+    ):
+
+        transaction[
+            "recovery_attempted"
+        ] = (
+            "True"
+            if transaction[
+                "recovery_attempted"
             ]
             else "False"
         )
